@@ -258,7 +258,7 @@ export function simulate(p: ModelParams): DailyRow[] {
     const released_mx_today = instant_release_mx + linear_release_mx
 
     // ================================================================
-    // STEP 3: MX Burn Gate — BEFORE selling AR
+    // STEP 3: MX Burn Gate — BEFORE selling MX
     // ================================================================
     let mx_buy_usdc = 0
     let mx_burn_amount = 0
@@ -294,7 +294,7 @@ export function simulate(p: ModelParams): DailyRow[] {
     cum_mx_sold += sold_mx_today
 
     // ================================================================
-    // STEP 6: AMM AR->USDC swap (sell)
+    // STEP 6: AMM MX->USDC swap (sell)
     // ================================================================
     const lp_usdc_begin = lp_usdc_current
     const lp_token_begin = lp_token_current
@@ -313,7 +313,7 @@ export function simulate(p: ModelParams): DailyRow[] {
     }
 
     // ================================================================
-    // STEP 7: Treasury buyback (USDC->AR, supports price)
+    // STEP 7: Treasury buyback (USDC->MX, supports price)
     // ================================================================
     let treasury_defense_active = false
     let buyback_budget_usdc = 0
