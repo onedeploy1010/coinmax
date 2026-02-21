@@ -143,10 +143,75 @@ export interface ThresholdResult {
   direction: "max" | "min"
 }
 
-// ---- Optimizer (Section F) ----
+// ---- Investor Dashboard (Stage Checkpoints + Optimizer) ----
 
-export interface OptimizeResult {
-  params: Partial<ModelParams>
-  before: StressSummary
-  after: StressSummary
+export type OptObjective = "max_safety" | "balanced" | "max_growth"
+export type PressureLabel = "SAFE" | "WATCH" | "RISK" | "DANGER"
+export type SustainabilityLabel = "HEALTHY" | "TIGHT" | "UNSUSTAINABLE"
+
+export interface PressureTargets {
+  targetSoldOverLP: number
+  targetDrawdown: number
+  targetTreasuryStress: number
+}
+
+export interface GrowthTargets {
+  target_junior_90: number
+  target_senior_90: number
+}
+
+export interface StageCheckpoint {
+  day: number
+  price: number
+  lp_usdc: number
+  treasury: number
+  min_treasury: number
+  min_lp_usdc: number
+  max_drawdown: number
+  max_sold_over_lp: number
+  total_payout_usdc: number
+  total_principal_inflow: number
+  total_ar_emitted: number
+  total_ar_burned: number
+  total_ar_sold: number
+  total_ar_buyback: number
+  total_usdc_redemptions: number
+  total_mx_burned: number
+  net_sell_pressure: number
+  junior_cum: number
+  senior_cum: number
+  pressure_score: number
+  pressure_label: PressureLabel
+  growth_kpi: "PASS" | "FAIL"
+  sustainability_label: SustainabilityLabel
+  liquidity_label: "PASS" | "FAIL"
+  payout_ratio: number
+  recommendation: string
+}
+
+export interface OptimizerConstraints {
+  min_treasury_usdc: number
+  min_lp_usdc: number
+  max_drawdown: number
+  max_sold_over_lp: number
+}
+
+export interface OptSearchRange {
+  key: string
+  label: string
+  values: number[]
+  enabled: boolean
+}
+
+export interface OptResultItem {
+  rank: number
+  overrides: Record<string, number>
+  summary: StressSummary
+  score: number
+}
+
+export interface OptRunResult {
+  objective: OptObjective
+  baseline: StressSummary
+  results: OptResultItem[]
 }

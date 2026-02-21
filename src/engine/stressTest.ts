@@ -1,4 +1,4 @@
-import type { ModelParams, StressConfig, StressSummary, FailRules, ThresholdResult, OptimizeResult } from "../config/types"
+import type { ModelParams, StressConfig, StressSummary, FailRules, ThresholdResult, OptObjective, OptimizerConstraints, OptSearchRange, OptResultItem, OptRunResult } from "../config/types"
 import { simulate, type DailyRow } from "./simulate"
 
 export function simulateSummary(cfg: ModelParams): Omit<StressSummary, "params" | "fail_reason"> {
@@ -119,68 +119,135 @@ export function findThresholds(baseConfig: ModelParams, failRules: FailRules): T
   return results
 }
 
-// ---- One-Click Optimizer (Section F) ----
+// ---- Multi-Objective Optimizer (Investor Dashboard) ----
 
-interface OptDim {
-  key: string
-  values: number[]
-}
-
-const OPT_DIMS: OptDim[] = [
-  { key: "treasury_buyback_ratio", values: [0.05, 0.10, 0.15, 0.20, 0.25, 0.30] },
-  { key: "treasury_redemption_ratio", values: [0, 0.10, 0.20, 0.30, 0.40, 0.50] },
-  { key: "mx_burn_per_withdraw_ratio", values: [0.05, 0.10, 0.15, 0.20, 0.25, 0.30] },
-  { key: "withdraw_delay_days", values: [0, 7, 15, 30, 60] },
+export const DEFAULT_OPT_RANGES: OptSearchRange[] = [
+  { key: "sell_pressure_ratio", label: "卖压比例", values: [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9], enabled: true },
+  { key: "withdraw_delay_days", label: "提现延迟天数", values: [0, 7, 15, 30, 60], enabled: true },
+  { key: "lp_usdc", label: "LP USDC", values: [50000, 100000, 150000, 200000, 250000, 300000, 400000, 500000], enabled: false },
+  { key: "growth_rate", label: "增长率", values: [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6], enabled: false },
+  { key: "junior_monthly_new", label: "初级月新增", values: [200, 300, 500, 700, 1000, 1500, 2000], enabled: false },
+  { key: "senior_monthly_new", label: "高级月新增", values: [50, 100, 150, 200, 300, 400, 500], enabled: false },
+  { key: "treasury_buyback_ratio", label: "回购比例", values: [0.05, 0.10, 0.15, 0.20, 0.25, 0.30], enabled: true },
+  { key: "treasury_redemption_ratio", label: "兑付比例", values: [0, 0.10, 0.20, 0.30, 0.40, 0.50], enabled: true },
+  { key: "mx_burn_per_withdraw_ratio", label: "MX销毁比例", values: [0.05, 0.10, 0.15, 0.20, 0.25, 0.30], enabled: true },
+  { key: "max_out_multiple", label: "最大回本倍数", values: [2, 3, 4], enabled: false },
 ]
 
-export function runOptimizer(
+export const DEFAULT_OPT_CONSTRAINTS: OptimizerConstraints = {
+  min_treasury_usdc: 0,
+  min_lp_usdc: 20000,
+  max_drawdown: 0.50,
+  max_sold_over_lp: 0.25,
+}
+
+function scoreResult(
+  s: Omit<StressSummary, "params" | "fail_reason">,
+  c: OptimizerConstraints,
+  objective: OptObjective,
+  treasuryStart: number,
+): { score: number; violated: boolean } {
+  const violated =
+    s.min_treasury < c.min_treasury_usdc ||
+    s.min_lp_usdc < c.min_lp_usdc ||
+    s.max_drawdown > c.max_drawdown ||
+    s.max_sold_over_lp > c.max_sold_over_lp
+
+  let score = violated ? -10000 : 0
+  const tStress = treasuryStart > 0 ? Math.max(0, -s.min_treasury) / treasuryStart : 0
+
+  switch (objective) {
+    case "max_safety":
+      score += 1000
+      score -= 400 * s.max_drawdown
+      score -= 400 * s.max_sold_over_lp
+      score -= 200 * tStress
+      break
+    case "balanced":
+      score += 1000
+      score += s.total_payout_usdc * 0.001
+      score -= 300 * s.max_drawdown
+      score -= 300 * s.max_sold_over_lp
+      score -= 200 * tStress
+      break
+    case "max_growth":
+      score += 1000
+      score += s.total_payout_usdc * 0.005
+      score += s.total_ar_emitted * 0.001
+      score -= 200 * s.max_drawdown
+      score -= 200 * s.max_sold_over_lp
+      break
+  }
+
+  return { score, violated }
+}
+
+function constraintsToFailRules(c: OptimizerConstraints): FailRules {
+  return {
+    min_treasury_usdc: c.min_treasury_usdc,
+    min_lp_usdc: c.min_lp_usdc,
+    max_price_drawdown: c.max_drawdown,
+    max_sold_over_lp: c.max_sold_over_lp,
+  }
+}
+
+export function runOptimizerV2(
   baseConfig: ModelParams,
-  failRules: FailRules,
+  objective: OptObjective,
+  constraints: OptimizerConstraints,
+  searchRanges: OptSearchRange[],
+  maxIterations: number = 500,
   onProgress?: (done: number, total: number) => void,
-): OptimizeResult {
-  const beforeSummary = simulateSummary(baseConfig)
-  const beforeResult: StressSummary = { params: {}, ...beforeSummary, fail_reason: detectFail(beforeSummary, failRules) }
+): OptRunResult {
+  const baselineSummary = simulateSummary(baseConfig)
+  const failRules = constraintsToFailRules(constraints)
+  const baseline: StressSummary = {
+    params: {},
+    ...baselineSummary,
+    fail_reason: detectFail(baselineSummary, failRules),
+  }
 
-  // Generate all combos but cap at 2000
-  let combos = generateCartesian(OPT_DIMS)
-  if (combos.length > 2000) combos = combos.slice(0, 2000)
-  const total = combos.length
+  const enabledRanges = searchRanges.filter((r) => r.enabled)
 
-  let bestScore = -Infinity
-  let bestOverrides: Record<string, number> = {}
-  let bestSummary = beforeSummary
+  // Random sampling with dedup
+  const seen = new Set<string>()
+  const candidates: { overrides: Record<string, number>; summary: Omit<StressSummary, "params" | "fail_reason">; score: number }[] = []
 
-  for (let i = 0; i < combos.length; i++) {
-    const overrides = combos[i]
+  for (let i = 0; i < maxIterations; i++) {
+    const overrides: Record<string, number> = {}
+    for (const r of enabledRanges) {
+      const idx = Math.floor(Math.random() * r.values.length)
+      overrides[r.key] = r.values[idx]
+    }
+
+    const key = JSON.stringify(overrides)
+    if (seen.has(key)) { if (onProgress) onProgress(i + 1, maxIterations); continue }
+    seen.add(key)
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cfg: any = { ...baseConfig }
     for (const [k, v] of Object.entries(overrides)) cfg[k] = v
     const summary = simulateSummary(cfg as ModelParams)
-    const fail = detectFail(summary, failRules)
+    const { score } = scoreResult(summary, constraints, objective, baseConfig.treasury_start_usdc)
 
-    // Score: maximize final_price + minimize drawdown + ensure treasury stays above buffer
-    let score = summary.final_price * 100
-    score -= summary.max_drawdown * 50
-    score += Math.min(summary.min_treasury, 0) * 0.01
-    score -= summary.net_sell_pressure * 0.001
-    if (fail) score -= 1000
-
-    if (score > bestScore) {
-      bestScore = score
-      bestOverrides = overrides
-      bestSummary = summary
-    }
-    if (onProgress) onProgress(i + 1, total)
+    candidates.push({ overrides, summary, score })
+    if (onProgress) onProgress(i + 1, maxIterations)
   }
 
-  const afterResult: StressSummary = {
-    params: bestOverrides, ...bestSummary,
-    fail_reason: detectFail(bestSummary, failRules),
-  }
+  // Sort by score descending, take top 5
+  candidates.sort((a, b) => b.score - a.score)
+  const top5 = candidates.slice(0, 5)
 
-  return {
-    params: bestOverrides as Partial<ModelParams>,
-    before: beforeResult,
-    after: afterResult,
-  }
+  const results: OptResultItem[] = top5.map((c, i) => ({
+    rank: i + 1,
+    overrides: c.overrides,
+    summary: {
+      params: c.overrides,
+      ...c.summary,
+      fail_reason: detectFail(c.summary, failRules),
+    },
+    score: c.score,
+  }))
+
+  return { objective, baseline, results }
 }

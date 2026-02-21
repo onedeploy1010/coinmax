@@ -229,7 +229,11 @@ export const StressTestTab: React.FC<Props> = ({ config, isMobile }) => {
                   <th>最终国库</th>
                   <th>最大卖压/LP</th>
                   <th>总支付</th>
-                  <th>总AR发行</th>
+                  <th>总MX发行</th>
+                  <th>累回购MX</th>
+                  <th>累MX销毁</th>
+                  <th>累兑付</th>
+                  <th>净卖压</th>
                   <th>结果</th>
                 </tr>
               </thead>
@@ -247,6 +251,10 @@ export const StressTestTab: React.FC<Props> = ({ config, isMobile }) => {
                     <td>{pct(r.max_sold_over_lp)}</td>
                     <td>{fmt(r.total_payout_usdc, 2)}</td>
                     <td>{fmt(r.total_ar_emitted, 2)}</td>
+                    <td>{fmt(r.total_ar_buyback, 2)}</td>
+                    <td>{fmt(r.total_mx_burned, 2)}</td>
+                    <td>{fmt(r.total_usdc_redemptions, 2)}</td>
+                    <td>{fmt(r.net_sell_pressure, 2)}</td>
                     <td className={r.fail_reason ? "cell-fail" : "cell-pass"}>
                       {r.fail_reason ?? "通过"}
                     </td>
