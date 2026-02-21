@@ -9,15 +9,12 @@ interface Props {
   isMobile: boolean
 }
 
-interface ParamGroup {
-  label: string
-  fields: FieldDef[]
-}
+interface ParamGroup { label: string; fields: FieldDef[] }
 
 type FieldDef =
   | { key: string; label: string; type: "number"; step?: number }
   | { key: string; label: string; type: "boolean" }
-  | { key: string; label: string; type: "select"; options: { value: number; label: string }[] }
+  | { key: string; label: string; type: "select"; options: { value: string | number; label: string }[] }
   | { key: string; label: string; type: "record" }
 
 const GROUPS: ParamGroup[] = [
@@ -34,15 +31,7 @@ const GROUPS: ParamGroup[] = [
   {
     label: "增长模式",
     fields: [
-      {
-        key: "growth_mode",
-        label: "增长模式",
-        type: "select",
-        options: [
-          { value: 1, label: "线性" },
-          { value: 2, label: "指数" },
-        ],
-      },
+      { key: "growth_mode", label: "增长模式", type: "select", options: [{ value: 1, label: "线性" }, { value: 2, label: "指数" }] },
       { key: "growth_rate", label: "增长率", type: "number", step: 0.01 },
       { key: "junior_monthly_new", label: "初级月新增", type: "number" },
       { key: "senior_monthly_new", label: "高级月新增", type: "number" },
@@ -73,7 +62,7 @@ const GROUPS: ParamGroup[] = [
     ],
   },
   {
-    label: "3x 上限 / 销毁",
+    label: "3x 上限 / 销毁释放",
     fields: [
       { key: "max_out_multiple", label: "最大回本倍数", type: "number", step: 0.1 },
       { key: "cap_include_static", label: "含静态上限", type: "boolean" },
@@ -81,6 +70,28 @@ const GROUPS: ParamGroup[] = [
       { key: "withdraw_delay_days", label: "提现延迟天数", type: "number" },
       { key: "burn_schedule", label: "销毁计划", type: "record" },
       { key: "linear_release_days", label: "线性释放天数", type: "number" },
+    ],
+  },
+  {
+    label: "MX 销毁闸门",
+    fields: [
+      { key: "mx_price_usdc", label: "MX 价格 (USDC)", type: "number", step: 0.01 },
+      { key: "mx_burn_per_withdraw_ratio", label: "提现销毁比例", type: "number", step: 0.01 },
+      { key: "mx_burn_mode", label: "计算模式", type: "select", options: [{ value: "usdc_value", label: "USDC 价值" }, { value: "ar_amount", label: "AR 数量" }] },
+      { key: "mx_amm_enabled", label: "MX AMM (预留)", type: "boolean" },
+      { key: "mx_burn_from", label: "销毁来源", type: "select", options: [{ value: "user", label: "用户承担" }, { value: "treasury", label: "国库承担" }] },
+    ],
+  },
+  {
+    label: "国库防御工具",
+    fields: [
+      { key: "treasury_defense_enabled", label: "启用防御", type: "boolean" },
+      { key: "treasury_buyback_ratio", label: "回购比例(日流入)", type: "number", step: 0.01 },
+      { key: "treasury_redemption_ratio", label: "兑付比例", type: "number", step: 0.01 },
+      { key: "treasury_buyback_trigger.drawdown_threshold", label: "回撤触发阈值", type: "number", step: 0.01 },
+      { key: "treasury_buyback_trigger.sold_over_lp_threshold", label: "卖压/LP触发", type: "number", step: 0.01 },
+      { key: "treasury_buyback_trigger.lp_usdc_min_threshold", label: "LP最低触发", type: "number" },
+      { key: "treasury_buyback_trigger.treasury_min_buffer", label: "国库最低缓冲", type: "number" },
     ],
   },
   {
@@ -104,25 +115,30 @@ const GROUPS: ParamGroup[] = [
     ],
   },
   {
-    label: "国库",
+    label: "国库基础",
     fields: [
       { key: "treasury_start_usdc", label: "国库初始 USDC", type: "number" },
       { key: "external_profit_monthly", label: "外部月利润", type: "number" },
       { key: "external_profit_growth_rate", label: "外部利润增长率", type: "number", step: 0.01 },
       { key: "usdc_payout_cover_ratio", label: "USDC 支付覆盖率", type: "number", step: 0.01 },
       { key: "lp_owned_by_treasury", label: "LP 归国库所有", type: "boolean" },
-      {
-        key: "node_payout_mode",
-        label: "节点支付模式",
-        type: "select",
-        options: [
-          { value: 1, label: "模式 1" },
-          { value: 2, label: "模式 2" },
-        ],
-      },
+      { key: "node_payout_mode", label: "节点支付模式", type: "select", options: [{ value: 1, label: "模式 1" }, { value: 2, label: "模式 2" }] },
     ],
   },
 ]
+
+// Deep get/set for nested keys like "treasury_buyback_trigger.drawdown_threshold"
+function deepGet(obj: any, path: string): any {
+  return path.split(".").reduce((o, k) => o?.[k], obj)
+}
+function deepSet(obj: any, path: string, val: any): any {
+  const clone = JSON.parse(JSON.stringify(obj))
+  const keys = path.split(".")
+  let cur = clone
+  for (let i = 0; i < keys.length - 1; i++) cur = cur[keys[i]]
+  cur[keys[keys.length - 1]] = val
+  return clone
+}
 
 export const ParamPanel: React.FC<Props> = ({ config, onChange, onRun, isMobile }) => {
   const [scenarioName, setScenarioName] = useState("")
@@ -130,12 +146,14 @@ export const ParamPanel: React.FC<Props> = ({ config, onChange, onRun, isMobile 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
 
   const set = (key: string, val: unknown) => {
-    onChange({ ...config, [key]: val } as ModelParams)
+    if (key.includes(".")) {
+      onChange(deepSet(config, key, val) as ModelParams)
+    } else {
+      onChange({ ...config, [key]: val } as ModelParams)
+    }
   }
 
-  const toggleGroup = (label: string) => {
-    setCollapsed((p) => ({ ...p, [label]: !p[label] }))
-  }
+  const toggleGroup = (label: string) => setCollapsed((p) => ({ ...p, [label]: !p[label] }))
 
   const handleSave = () => {
     if (!scenarioName.trim()) return
@@ -143,31 +161,17 @@ export const ParamPanel: React.FC<Props> = ({ config, onChange, onRun, isMobile 
     setScenarios(loadScenarios())
     setScenarioName("")
   }
-
-  const handleLoad = (name: string) => {
-    const s = scenarios.find((x) => x.name === name)
-    if (s) onChange(s.config)
-  }
-
-  const handleDelete = (name: string) => {
-    deleteScenario(name)
-    setScenarios(loadScenarios())
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const cfgAny = config as any
+  const handleLoad = (name: string) => { const s = scenarios.find((x) => x.name === name); if (s) onChange(s.config) }
+  const handleDelete = (name: string) => { deleteScenario(name); setScenarios(loadScenarios()) }
 
   const renderField = (f: FieldDef) => {
+    const val = deepGet(config, f.key)
     if (f.type === "number") {
       return (
         <div className="field-row" key={f.key}>
           <label>{f.label}</label>
-          <input
-            type="number"
-            step={f.step ?? 1}
-            value={cfgAny[f.key] as number}
-            onChange={(e) => set(f.key, parseFloat(e.target.value) || 0)}
-          />
+          <input type="number" step={f.step ?? 1} value={val as number}
+            onChange={(e) => set(f.key, parseFloat(e.target.value) || 0)} />
         </div>
       )
     }
@@ -175,11 +179,7 @@ export const ParamPanel: React.FC<Props> = ({ config, onChange, onRun, isMobile 
       return (
         <div className="field-row" key={f.key}>
           <label>{f.label}</label>
-          <input
-            type="checkbox"
-            checked={cfgAny[f.key] as boolean}
-            onChange={(e) => set(f.key, e.target.checked)}
-          />
+          <input type="checkbox" checked={val as boolean} onChange={(e) => set(f.key, e.target.checked)} />
         </div>
       )
     }
@@ -187,37 +187,23 @@ export const ParamPanel: React.FC<Props> = ({ config, onChange, onRun, isMobile 
       return (
         <div className="field-row" key={f.key}>
           <label>{f.label}</label>
-          <select
-            value={cfgAny[f.key] as number}
-            onChange={(e) => set(f.key, parseInt(e.target.value))}
-          >
-            {f.options.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
+          <select value={String(val)} onChange={(e) => {
+            const v = e.target.value
+            const numVal = Number(v)
+            set(f.key, isNaN(numVal) ? v : numVal)
+          }}>
+            {f.options.map((o) => <option key={String(o.value)} value={String(o.value)}>{o.label}</option>)}
           </select>
         </div>
       )
     }
     if (f.type === "record") {
-      const val = cfgAny[f.key] as Record<number, number>
-      const text = JSON.stringify(val)
       return (
         <div className="field-row" key={f.key}>
           <label>{f.label}</label>
-          <input
-            type="text"
-            value={text}
-            onChange={(e) => {
-              try {
-                const parsed = JSON.parse(e.target.value)
-                if (typeof parsed === "object" && parsed !== null) set(f.key, parsed)
-              } catch {
-                /* ignore invalid json while typing */
-              }
-            }}
-          />
+          <input type="text" value={JSON.stringify(val)} onChange={(e) => {
+            try { const p = JSON.parse(e.target.value); if (typeof p === "object" && p !== null) set(f.key, p) } catch { /* */ }
+          }} />
         </div>
       )
     }
@@ -227,49 +213,31 @@ export const ParamPanel: React.FC<Props> = ({ config, onChange, onRun, isMobile 
   return (
     <div className={`param-panel ${isMobile ? "param-panel-mobile" : ""}`}>
       <h2>控制面板</h2>
-
-      {/* Scenario manager */}
       <div className="scenario-section">
         <div className="scenario-save">
-          <input
-            type="text"
-            placeholder="方案名称..."
-            value={scenarioName}
-            onChange={(e) => setScenarioName(e.target.value)}
-          />
+          <input type="text" placeholder="方案名称..." value={scenarioName} onChange={(e) => setScenarioName(e.target.value)} />
           <button onClick={handleSave} className="btn-sm">保存</button>
         </div>
         {scenarios.length > 0 && (
           <div className="scenario-list">
             {scenarios.map((s) => (
               <div key={s.name} className="scenario-item">
-                <span className="scenario-name" onClick={() => handleLoad(s.name)}>
-                  {s.name}
-                </span>
-                <button className="btn-xs btn-danger" onClick={() => handleDelete(s.name)}>
-                  删除
-                </button>
+                <span className="scenario-name" onClick={() => handleLoad(s.name)}>{s.name}</span>
+                <button className="btn-xs btn-danger" onClick={() => handleDelete(s.name)}>删除</button>
               </div>
             ))}
           </div>
         )}
       </div>
-
-      {/* Parameter groups */}
       {GROUPS.map((g) => (
         <div className="param-group" key={g.label}>
           <div className="param-group-header" onClick={() => toggleGroup(g.label)}>
             <span>{collapsed[g.label] ? "▸" : "▾"} {g.label}</span>
           </div>
-          {!collapsed[g.label] && (
-            <div className="param-group-body">{g.fields.map(renderField)}</div>
-          )}
+          {!collapsed[g.label] && <div className="param-group-body">{g.fields.map(renderField)}</div>}
         </div>
       ))}
-
-      <button className="btn-run" onClick={onRun}>
-        运行模拟
-      </button>
+      <button className="btn-run" onClick={onRun}>运行模拟</button>
     </div>
   )
 }
