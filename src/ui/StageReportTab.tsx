@@ -98,6 +98,10 @@ export const StageReportTab: React.FC<Props> = ({ rows, config }) => {
                 <th>增长KPI</th>
                 <th>支付可持续</th>
                 <th>流动性</th>
+                <th>金库状态</th>
+                <th>质押用户</th>
+                <th>质押USDC</th>
+                <th>平台收入</th>
                 <th>建议</th>
               </tr>
             </thead>
@@ -120,6 +124,12 @@ export const StageReportTab: React.FC<Props> = ({ rows, config }) => {
                   <td style={{ color: s.growth_kpi === "PASS" ? "#22c55e" : "#ef4444" }}>{s.growth_kpi}</td>
                   <td style={{ color: SUST_COLORS[s.sustainability_label] }}>{s.sustainability_label}</td>
                   <td style={{ color: s.liquidity_label === "PASS" ? "#22c55e" : "#ef4444" }}>{s.liquidity_label}</td>
+                  <td style={{ color: s.vault_kpi === "PASS" ? "#22c55e" : s.vault_kpi === "FAIL" ? "#ef4444" : "#666" }}>
+                    {s.vault_open ? s.vault_kpi : "未开启"}
+                  </td>
+                  <td>{fmt(s.vault_stakers, 0)}</td>
+                  <td>${fmt(s.vault_total_staked_usdc, 0)}</td>
+                  <td>${fmt(s.vault_platform_income, 0)}</td>
                   <td className="rec-cell">{s.recommendation}</td>
                 </tr>
               ))}
@@ -146,6 +156,10 @@ export const StageReportTab: React.FC<Props> = ({ rows, config }) => {
                 <div><span className="sdm-label">支付率</span><span className="sdm-value">{pct(s.payout_ratio)}</span></div>
                 <div><span className="sdm-label">回购MX</span><span className="sdm-value">{fmt(s.total_ar_buyback, 0)}</span></div>
                 <div><span className="sdm-label">MX销毁</span><span className="sdm-value">{fmt(s.total_mx_burned, 0)}</span></div>
+                <div><span className="sdm-label">金库</span><span className="sdm-value" style={{ color: s.vault_kpi === "PASS" ? "#22c55e" : s.vault_kpi === "FAIL" ? "#ef4444" : "#666" }}>{s.vault_open ? s.vault_kpi : "未开启"}</span></div>
+                <div><span className="sdm-label">质押用户</span><span className="sdm-value">{fmt(s.vault_stakers, 0)}</span></div>
+                <div><span className="sdm-label">质押USDC</span><span className="sdm-value">${fmt(s.vault_total_staked_usdc, 0)}</span></div>
+                <div><span className="sdm-label">平台收入</span><span className="sdm-value">${fmt(s.vault_platform_income, 0)}</span></div>
               </div>
               <div className="stage-detail-rec">{s.recommendation}</div>
             </div>

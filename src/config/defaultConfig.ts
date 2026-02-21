@@ -12,6 +12,8 @@ export const defaultConfig: ModelParams = {
   growth_rate: 0.2,
   junior_monthly_new: 500,
   senior_monthly_new: 100,
+  junior_max_nodes: 2000,
+  senior_max_nodes: 1000,
   sim_days: 180,
 
   junior_invest_usdc: 100,
@@ -38,6 +40,7 @@ export const defaultConfig: ModelParams = {
   linear_release_days: 30,
 
   vault_rates: { 7: 0.005, 30: 0.007, 90: 0.009, 180: 0.012, 360: 0.015 },
+  blend_mode: "average",
   platform_fee_ratio: 0.10,
   early_unstake_penalty_ratio: 0.20,
 
@@ -56,6 +59,14 @@ export const defaultConfig: ModelParams = {
   lp_owned_by_treasury: false,
 
   node_payout_mode: 1,
+
+  // 金库开启条件 & 用户增长
+  vault_open_day: 30,
+  vault_open_on_node_full: true,
+  vault_convert_ratio: 0.30,
+  vault_monthly_new: 200,
+  vault_user_growth_rate: 0.10,
+  vault_avg_stake_usdc: 500,
 
   // MX Burn Gate
   mx_price_usdc: 1,

@@ -64,16 +64,17 @@ export const InvestorDashboardTab: React.FC<Props> = ({ rows, config }) => {
   // Find the latest stage data for summary
   const latestStage = stages.length > 0 ? stages[stages.length - 1] : null
 
-  // Top 3 cards
+  // Top summary cards
   const growthStatus = latestStage?.growth_kpi === "PASS" ? "PASS" : "FAIL"
   const stabilityStatus = latestStage ? latestStage.pressure_label : "N/A"
   const cashflowStatus = latestStage ? latestStage.sustainability_label : "N/A"
+  const vaultStatus = latestStage ? latestStage.vault_kpi : "N/A"
 
   const selectedStage = selectedDay ? stages.find((s) => s.day === selectedDay) : null
 
   return (
     <div className="investor-dashboard">
-      {/* Top 3 Summary Cards */}
+      {/* Top Summary Cards */}
       <div className="top-cards">
         <div className="summary-card">
           <div className="summary-card-header">
@@ -111,6 +112,22 @@ export const InvestorDashboardTab: React.FC<Props> = ({ rows, config }) => {
           <div className="summary-card-value">${fmt(last.treasury_end, 0)}</div>
           <div className="summary-card-sub">
             支付率 {latestStage ? pct(latestStage.payout_ratio) : "N/A"} | LP ${fmt(last.lp_usdc_end, 0)}
+          </div>
+        </div>
+
+        <div className="summary-card">
+          <div className="summary-card-header">
+            <span className="summary-card-title">金库 Vault</span>
+            <span className="summary-badge" style={{
+              background: vaultStatus === "PASS" ? "#22c55e22" : vaultStatus === "FAIL" ? "#ef444422" : "#66666622",
+              color: vaultStatus === "PASS" ? "#22c55e" : vaultStatus === "FAIL" ? "#ef4444" : "#666",
+            }}>
+              {last.vault_open ? vaultStatus : "未开启"}
+            </span>
+          </div>
+          <div className="summary-card-value">${fmt(last.vault_total_staked_usdc, 0)}</div>
+          <div className="summary-card-sub">
+            质押用户 {fmt(last.vault_stakers, 0)} | 平台收入 ${latestStage ? fmt(latestStage.vault_platform_income, 0) : "0"}
           </div>
         </div>
       </div>
@@ -240,6 +257,9 @@ export const InvestorDashboardTab: React.FC<Props> = ({ rows, config }) => {
                   <th>增长</th>
                   <th>可持续</th>
                   <th>流动性</th>
+                  <th>金库</th>
+                  <th>质押用户</th>
+                  <th>质押金额</th>
                 </tr>
               </thead>
               <tbody>
@@ -258,6 +278,9 @@ export const InvestorDashboardTab: React.FC<Props> = ({ rows, config }) => {
                     <td style={{ color: s.growth_kpi === "PASS" ? "#22c55e" : "#ef4444" }}>{s.growth_kpi}</td>
                     <td style={{ color: SUST_COLORS[s.sustainability_label] }}>{s.sustainability_label}</td>
                     <td style={{ color: s.liquidity_label === "PASS" ? "#22c55e" : "#ef4444" }}>{s.liquidity_label}</td>
+                    <td style={{ color: s.vault_kpi === "PASS" ? "#22c55e" : s.vault_kpi === "FAIL" ? "#ef4444" : "#666" }}>{s.vault_open ? s.vault_kpi : "未开启"}</td>
+                    <td>{fmt(s.vault_stakers, 0)}</td>
+                    <td>${fmt(s.vault_total_staked_usdc, 0)}</td>
                   </tr>
                 ))}
               </tbody>

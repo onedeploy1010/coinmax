@@ -1,4 +1,5 @@
 export type GrowthMode = 1 | 2
+export type BlendMode = "aggressive" | "longterm" | "weighted" | "average"
 
 export interface TreasuryBuybackTrigger {
   drawdown_threshold: number
@@ -19,6 +20,8 @@ export interface ModelParams {
   growth_rate: number
   junior_monthly_new: number
   senior_monthly_new: number
+  junior_max_nodes: number
+  senior_max_nodes: number
   sim_days: number
 
   junior_invest_usdc: number
@@ -45,6 +48,7 @@ export interface ModelParams {
   linear_release_days: number
 
   vault_rates: Record<number, number>
+  blend_mode: BlendMode
   platform_fee_ratio: number
   early_unstake_penalty_ratio: number
 
@@ -63,6 +67,16 @@ export interface ModelParams {
   lp_owned_by_treasury: boolean
 
   node_payout_mode: 1 | 2
+
+  // ---- 金库开启条件 ----
+  vault_open_day: number           // 固定开启日（0 = 不按天数触发）
+  vault_open_on_node_full: boolean // 节点招满时开启
+
+  // ---- 金库用户增长 ----
+  vault_convert_ratio: number      // 节点→质押用户转化率
+  vault_monthly_new: number        // 独立外部月新增质押用户
+  vault_user_growth_rate: number   // 外部质押用户月增长率
+  vault_avg_stake_usdc: number     // 平均每人质押 USDC
 
   // ---- MX Burn Gate (Section A) ----
   mx_price_usdc: number
@@ -186,6 +200,11 @@ export interface StageCheckpoint {
   sustainability_label: SustainabilityLabel
   liquidity_label: "PASS" | "FAIL"
   payout_ratio: number
+  vault_open: boolean
+  vault_stakers: number
+  vault_total_staked_usdc: number
+  vault_platform_income: number
+  vault_kpi: "PASS" | "FAIL" | "N/A"
   recommendation: string
 }
 

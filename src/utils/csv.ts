@@ -22,6 +22,7 @@ const HEADERS: (keyof DailyRow)[] = [
   "sold_over_lp", "price_change",
   "total_ar_emitted", "total_ar_burned", "total_ar_sold",
   "total_mx_burned", "total_usdc_redemptions", "total_ar_buyback",
+  "vault_open", "vault_stakers", "vault_total_staked_usdc", "vault_avg_lock_days", "vault_stake_ratio",
   "vault_profit_today", "platform_vault_income_today", "insurance_payout_today",
 ]
 
@@ -80,7 +81,9 @@ const STAGE_HEADERS: (keyof StageCheckpoint)[] = [
   "total_ar_buyback", "total_usdc_redemptions", "total_mx_burned",
   "net_sell_pressure", "pressure_score", "pressure_label",
   "growth_kpi", "sustainability_label", "liquidity_label",
-  "payout_ratio", "recommendation",
+  "payout_ratio",
+  "vault_open", "vault_stakers", "vault_total_staked_usdc", "vault_platform_income", "vault_kpi",
+  "recommendation",
 ]
 
 export function exportStageCSV(stages: StageCheckpoint[]): void {

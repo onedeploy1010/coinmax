@@ -68,6 +68,7 @@ export function computeStageReport(
     let maxSol = 0
     let totalPayout = 0
     let totalPrincipal = 0
+    let totalVaultPlatformIncome = 0
 
     for (const s of slice) {
       if (s.price_end > peak) peak = s.price_end
@@ -76,6 +77,7 @@ export function computeStageReport(
       if (s.sold_over_lp > maxSol) maxSol = s.sold_over_lp
       totalPayout += s.node_payout_usdc_capped
       totalPrincipal += s.junior_new * config.junior_invest_usdc + s.senior_new * config.senior_invest_usdc
+      totalVaultPlatformIncome += s.platform_vault_income_today
     }
 
     const minPrice = Math.min(...slice.map((s) => s.price_end))
@@ -129,6 +131,21 @@ export function computeStageReport(
       recs.push("Node growth below target; consider marketing or incentive adjustments.")
     }
 
+    // ---- KPI-E: Vault ----
+    let vaultKpi: "PASS" | "FAIL" | "N/A" = "N/A"
+    if (r.vault_open) {
+      // Target: vault stakers >= 30% of total nodes, vault staked >= 10% of total principal
+      const stakerTarget = (r.junior_cum + r.senior_cum) * 0.3
+      const stakedTarget = totalPrincipal * 0.1
+      vaultKpi = r.vault_stakers >= stakerTarget && r.vault_total_staked_usdc >= stakedTarget ? "PASS" : "FAIL"
+
+      if (vaultKpi === "FAIL") {
+        recs.push("质押用户或金额未达标，考虑提高转化率或降低门槛。")
+      }
+    } else {
+      recs.push("金库尚未开启，节点招募中。")
+    }
+
     if (recs.length === 0) {
       recs.push("System operating within safe parameters. All KPIs healthy.")
     }
@@ -159,6 +176,11 @@ export function computeStageReport(
       sustainability_label: sustLabel,
       liquidity_label: liqLabel,
       payout_ratio: payoutRatio,
+      vault_open: r.vault_open,
+      vault_stakers: r.vault_stakers,
+      vault_total_staked_usdc: r.vault_total_staked_usdc,
+      vault_platform_income: totalVaultPlatformIncome,
+      vault_kpi: vaultKpi,
       recommendation: recs.join(" "),
     })
   }

@@ -1,4 +1,5 @@
 import type { ModelParams, Cohort, ReleaseItem } from "../config/types"
+import { blendRateMap, blendKeyMap } from "./blendRates"
 
 export interface DailyRow {
   day: number
@@ -64,6 +65,11 @@ export interface DailyRow {
   total_usdc_redemptions: number
   total_ar_buyback: number
   // Vault / insurance
+  vault_open: boolean
+  vault_stakers: number
+  vault_total_staked_usdc: number
+  vault_avg_lock_days: number
+  vault_stake_ratio: number
   vault_profit_today: number
   platform_vault_income_today: number
   insurance_payout_today: number
@@ -120,13 +126,15 @@ export function simulate(p: ModelParams): DailyRow[] {
   // Track peak price for drawdown computation
   let peak_price = prev_price
 
-  const burnRate = p.burn_schedule[p.withdraw_delay_days] ?? 0
+  const burnRate = blendRateMap(p.burn_schedule, p.blend_mode)
   const jMilestones = getJuniorMilestones(p)
   const sMilestones = getSeniorMilestones(p)
 
-  const vaultKeys = Object.keys(p.vault_rates).map(Number).sort((a, b) => a - b)
-  const vaultLockDays = vaultKeys.length > 0 ? vaultKeys[Math.floor(vaultKeys.length / 2)] : 30
-  const vaultRate = p.vault_rates[vaultLockDays] ?? 0
+  const vaultRate = blendRateMap(p.vault_rates, p.blend_mode)
+  const vaultAvgLockDays = blendKeyMap(p.vault_rates, p.blend_mode)
+
+  let vault_opened = false
+  let vault_open_day_actual = 0 // the day vault actually opened
 
   const trigger = p.treasury_buyback_trigger
 
@@ -138,8 +146,14 @@ export function simulate(p: ModelParams): DailyRow[] {
       if (p.growth_mode === 1) return base
       return base * Math.pow(1 + p.growth_rate, month_idx - 1)
     }
-    const junior_new = Math.round(monthlyNew(p.junior_monthly_new) / 30)
-    const senior_new = Math.round(monthlyNew(p.senior_monthly_new) / 30)
+    const junior_new = Math.min(
+      Math.round(monthlyNew(p.junior_monthly_new) / 30),
+      Math.max(0, p.junior_max_nodes - junior_cum),
+    )
+    const senior_new = Math.min(
+      Math.round(monthlyNew(p.senior_monthly_new) / 30),
+      Math.max(0, p.senior_max_nodes - senior_cum),
+    )
     junior_cum += junior_new
     senior_cum += senior_new
 
@@ -305,10 +319,46 @@ export function simulate(p: ModelParams): DailyRow[] {
     const inflow_node = junior_new * p.junior_invest_usdc + senior_new * p.senior_invest_usdc
     const external_profit_daily = (p.external_profit_monthly / 30) * Math.pow(1 + p.external_profit_growth_rate, month_idx - 1)
 
-    // Vault
-    const vault_principal_estimate = (junior_cum * p.junior_invest_usdc + senior_cum * p.senior_invest_usdc) * 0.1
-    const vault_profit_today = vault_principal_estimate * vaultRate
-    const platform_vault_income_today = vault_profit_today * p.platform_fee_ratio
+    // ---- Vault phase check ----
+    if (!vault_opened) {
+      const cond1 = p.vault_open_day > 0 && day >= p.vault_open_day
+      const cond2 = p.vault_open_on_node_full && junior_cum >= p.junior_max_nodes && senior_cum >= p.senior_max_nodes
+      if (cond1 || cond2) {
+        vault_opened = true
+        vault_open_day_actual = day
+      }
+    }
+
+    // ---- Vault stakers & principal ----
+    let vault_stakers = 0
+    let vault_total_staked_usdc = 0
+    let vault_profit_today = 0
+    let platform_vault_income_today = 0
+
+    if (vault_opened) {
+      const days_since_open = day - vault_open_day_actual
+      const months_since_open = days_since_open / 30
+
+      // Converted users from existing nodes
+      const convert_users = (junior_cum + senior_cum) * p.vault_convert_ratio
+
+      // External new users (cumulative): sum of monthly cohorts with growth
+      let external_users = 0
+      const full_months = Math.floor(months_since_open)
+      for (let m = 0; m < full_months; m++) {
+        external_users += p.vault_monthly_new * Math.pow(1 + p.vault_user_growth_rate, m)
+      }
+      // Partial current month
+      const partial_days = days_since_open - full_months * 30
+      if (partial_days > 0) {
+        external_users += p.vault_monthly_new * Math.pow(1 + p.vault_user_growth_rate, full_months) * (partial_days / 30)
+      }
+
+      vault_stakers = Math.round(convert_users + external_users)
+      vault_total_staked_usdc = vault_stakers * p.vault_avg_stake_usdc
+      vault_profit_today = vault_total_staked_usdc * vaultRate
+      platform_vault_income_today = vault_profit_today * p.platform_fee_ratio
+    }
 
     const treasury_inflow_raw = inflow_node + external_profit_daily + platform_vault_income_today
 
@@ -409,6 +459,13 @@ export function simulate(p: ModelParams): DailyRow[] {
       sold_over_lp, price_change,
       total_ar_emitted: cum_ar_emitted, total_ar_burned: cum_ar_burned, total_ar_sold: cum_ar_sold,
       total_mx_burned: cum_mx_burned, total_usdc_redemptions: cum_usdc_redemptions, total_ar_buyback: cum_ar_buyback,
+      vault_open: vault_opened,
+      vault_stakers,
+      vault_total_staked_usdc,
+      vault_avg_lock_days: vault_opened ? vaultAvgLockDays : 0,
+      vault_stake_ratio: (junior_cum * p.junior_invest_usdc + senior_cum * p.senior_invest_usdc) > 0
+        ? vault_total_staked_usdc / (junior_cum * p.junior_invest_usdc + senior_cum * p.senior_invest_usdc)
+        : 0,
       vault_profit_today, platform_vault_income_today, insurance_payout_today,
     })
   }
