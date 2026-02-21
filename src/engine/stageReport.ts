@@ -140,10 +140,10 @@ export function computeStageReport(
     }
 
     if (sustLabel === "UNSUSTAINABLE") {
-      recs.push("支付总额超过本金流入，建议降低日收益率或减少包奖励。")
-      recs.push("若国库崩溃可考虑设置USDC支付覆盖率为0（纯MX支付）。")
+      recs.push("兑付总额超过本金流入，建议降低日收益率或减少包奖励。")
+      recs.push("国库通过USDC兑换MX进行兑付，若国库压力过大可降低USDC支付覆盖率。")
     } else if (sustLabel === "TIGHT") {
-      recs.push("支付比率趋紧，需密切监控并准备调整费率。")
+      recs.push("国库MX兑付比率趋紧，需密切监控并准备调整费率。")
     }
 
     if (liqLabel === "FAIL") {
