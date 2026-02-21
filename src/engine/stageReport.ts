@@ -141,7 +141,7 @@ export function computeStageReport(
 
     if (sustLabel === "UNSUSTAINABLE") {
       recs.push("支付总额超过本金流入，建议降低日收益率或减少包奖励。")
-      recs.push("若国库崩溃可考虑设置USDC支付覆盖率为0（纯AR支付）。")
+      recs.push("若国库崩溃可考虑设置USDC支付覆盖率为0（纯MX支付）。")
     } else if (sustLabel === "TIGHT") {
       recs.push("支付比率趋紧，需密切监控并准备调整费率。")
     }
