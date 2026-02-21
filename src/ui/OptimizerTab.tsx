@@ -33,6 +33,7 @@ const PARAM_LABELS: Record<string, string> = {
   vault_convert_ratio: "质押转化率",
   vault_monthly_new: "质押月新增",
   vault_avg_stake_usdc: "人均质押USDC",
+  referral_bonus_ratio: "推荐奖金比例",
 }
 
 export const OptimizerTab: React.FC<Props> = ({ config, onApply, isMobile }) => {

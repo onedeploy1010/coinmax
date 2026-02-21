@@ -19,31 +19,31 @@ const CHARTS: ChartDef[] = [
   ]},
   { title: "国库防御 (回购 + 兑付)", dataKeys: [
     { key: "buyback_budget_usdc", color: "#06b6d4", name: "回购USDC" },
-    { key: "ar_buyback_out", color: "#10b981", name: "回购MX" },
-    { key: "redemption_usdc", color: "#8b5cf6", name: "兑付USDC" },
+    { key: "mx_buyback_out", color: "#10b981", name: "回购MX" },
+    { key: "redemption_mx", color: "#8b5cf6", name: "兑付MX" },
   ]},
   { title: "MX 销毁闸门", dataKeys: [
     { key: "mx_buy_usdc", color: "#f97316", name: "MX购买USDC" },
     { key: "mx_burn_amount", color: "#ef4444", name: "MX销毁量" },
   ]},
   { title: "净卖压 MX (卖出 - 回购)", dataKeys: [
-    { key: "sold_ar_today", color: "#ef4444", name: "售出MX" },
-    { key: "ar_buyback_out", color: "#22c55e", name: "回购MX" },
-    { key: "net_sell_ar", color: "#f59e0b", name: "净卖压" },
+    { key: "sold_mx_today", color: "#ef4444", name: "售出MX" },
+    { key: "mx_buyback_out", color: "#22c55e", name: "回购MX" },
+    { key: "net_sell_mx", color: "#f59e0b", name: "净卖压" },
   ]},
   { title: "LP 余额", dataKeys: [
     { key: "lp_usdc_end", color: "#06b6d4", name: "LP USDC" },
     { key: "lp_token_end", color: "#a855f7", name: "LP Token" },
   ]},
   { title: "每日 MX 流", dataKeys: [
-    { key: "payout_ar_today", color: "#10b981", name: "发行" },
-    { key: "released_ar_today", color: "#8b5cf6", name: "释放" },
-    { key: "released_ar_after_redemption", color: "#f59e0b", name: "兑付后释放" },
-    { key: "sold_ar_today", color: "#ef4444", name: "售出" },
+    { key: "payout_mx_today", color: "#10b981", name: "发行" },
+    { key: "released_mx_today", color: "#8b5cf6", name: "释放" },
+    { key: "released_mx_after_redemption", color: "#f59e0b", name: "兑付后释放" },
+    { key: "sold_mx_today", color: "#ef4444", name: "售出" },
   ]},
   { title: "累计防御指标", dataKeys: [
-    { key: "total_ar_buyback", color: "#22c55e", name: "累计回购MX" },
-    { key: "total_usdc_redemptions", color: "#8b5cf6", name: "累计兑付" },
+    { key: "total_mx_buyback", color: "#22c55e", name: "累计回购MX" },
+    { key: "total_mx_redemptions", color: "#8b5cf6", name: "累计兑付MX" },
     { key: "total_mx_burned", color: "#f97316", name: "累计MX销毁" },
   ]},
 ]

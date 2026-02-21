@@ -1,5 +1,6 @@
 import React, { useState } from "react"
 import type { ModelParams } from "../config/types"
+import { defaultConfig } from "../config/defaultConfig"
 import { loadScenarios, saveScenario, deleteScenario } from "../utils/scenario"
 
 interface Props {
@@ -17,7 +18,7 @@ type FieldDef =
   | { key: string; label: string; type: "select"; options: { value: string | number; label: string }[] }
   | { key: string; label: string; type: "record" }
 
-type ParamTab = "basic" | "nodes" | "defense" | "rates" | "advanced"
+type ParamTab = "basic" | "nodes" | "defense" | "rates" | "advanced" | "targets"
 
 const PARAM_TABS: { key: ParamTab; label: string }[] = [
   { key: "basic", label: "基础" },
@@ -25,6 +26,7 @@ const PARAM_TABS: { key: ParamTab; label: string }[] = [
   { key: "defense", label: "防御" },
   { key: "rates", label: "费率" },
   { key: "advanced", label: "高级" },
+  { key: "targets", label: "目标" },
 ]
 
 const TAB_GROUPS: Record<ParamTab, ParamGroup[]> = {
@@ -82,6 +84,14 @@ const TAB_GROUPS: Record<ParamTab, ParamGroup[]> = {
         { key: "max_out_multiple", label: "最大回本倍数", type: "number", step: 0.1 },
         { key: "cap_include_static", label: "含静态上限", type: "boolean" },
         { key: "cap_include_dynamic", label: "含动态上限", type: "boolean" },
+      ],
+    },
+    {
+      label: "推荐奖金",
+      fields: [
+        { key: "referral_enabled", label: "启用推荐奖金", type: "boolean" },
+        { key: "referral_bonus_ratio", label: "奖金比例", type: "number", step: 0.01 },
+        { key: "referral_participation_rate", label: "推荐参与率", type: "number", step: 0.01 },
       ],
     },
   ],
@@ -171,6 +181,36 @@ const TAB_GROUPS: Record<ParamTab, ParamGroup[]> = {
         { key: "usdc_payout_cover_ratio", label: "USDC 支付覆盖率", type: "number", step: 0.01 },
         { key: "lp_owned_by_treasury", label: "LP 归国库所有", type: "boolean" },
         { key: "node_payout_mode", label: "节点支付模式", type: "select", options: [{ value: 1, label: "模式 1" }, { value: 2, label: "模式 2" }] },
+      ],
+    },
+  ],
+  targets: [
+    {
+      label: "节点招募目标",
+      fields: [
+        { key: "target_junior_90", label: "初级90天目标", type: "number" },
+        { key: "target_senior_90", label: "高级90天目标", type: "number" },
+      ],
+    },
+    {
+      label: "压力指标阈值",
+      fields: [
+        { key: "target_sold_over_lp", label: "卖压/LP 目标", type: "number", step: 0.01 },
+        { key: "target_drawdown", label: "回撤目标", type: "number", step: 0.01 },
+        { key: "target_treasury_stress", label: "国库压力目标", type: "number", step: 0.01 },
+      ],
+    },
+    {
+      label: "流动性 & 财务",
+      fields: [
+        { key: "target_min_lp_usdc", label: "最低 LP USDC", type: "number" },
+      ],
+    },
+    {
+      label: "金库目标",
+      fields: [
+        { key: "target_vault_staker_ratio", label: "质押用户比例目标", type: "number", step: 0.01 },
+        { key: "target_vault_staked_ratio", label: "质押金额比例目标", type: "number", step: 0.01 },
       ],
     },
   ],
@@ -279,7 +319,7 @@ export const ParamPanel: React.FC<Props> = ({ config, onChange, onRun, isMobile 
     setScenarios(loadScenarios())
     setScenarioName("")
   }
-  const handleLoad = (name: string) => { const s = scenarios.find((x) => x.name === name); if (s) onChange(s.config) }
+  const handleLoad = (name: string) => { const s = scenarios.find((x) => x.name === name); if (s) onChange({ ...defaultConfig, ...s.config }) }
   const handleDelete = (name: string) => { deleteScenario(name); setScenarios(loadScenarios()) }
 
   const renderField = (f: FieldDef) => {

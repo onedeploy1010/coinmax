@@ -18,21 +18,20 @@ export interface DailyRow {
   senior_daily_income_usdc: number
   node_payout_usdc_today: number
   node_payout_usdc_capped: number
-  payout_ar_today: number
+  payout_mx_today: number
   // MX Burn Gate
   mx_buy_usdc: number
   mx_burn_amount: number
-  // Treasury redemption
-  redemption_usdc: number
-  ar_redeemed_equivalent: number
+  // Treasury redemption (MX)
+  redemption_mx: number
   // Burn + release
   burn_rate: number
   instant_release_ratio: number
-  instant_release_ar: number
-  linear_release_ar: number
-  released_ar_today: number
-  released_ar_after_redemption: number
-  sold_ar_today: number
+  instant_release_mx: number
+  linear_release_mx: number
+  released_mx_today: number
+  released_mx_after_redemption: number
+  sold_mx_today: number
   // AMM sell
   lp_usdc_begin: number
   lp_token_begin: number
@@ -41,9 +40,9 @@ export interface DailyRow {
   // Treasury buyback
   treasury_defense_active: boolean
   buyback_budget_usdc: number
-  ar_buyback_out: number
+  mx_buyback_out: number
   price_after_buyback: number
-  net_sell_ar: number
+  net_sell_mx: number
   // Final LP
   lp_usdc_end: number
   lp_token_end: number
@@ -58,12 +57,12 @@ export interface DailyRow {
   sold_over_lp: number
   price_change: number
   // Cumulative
-  total_ar_emitted: number
-  total_ar_burned: number
-  total_ar_sold: number
+  total_mx_emitted: number
+  total_mx_deferred: number
+  total_mx_sold: number
   total_mx_burned: number
-  total_usdc_redemptions: number
-  total_ar_buyback: number
+  total_mx_redemptions: number
+  total_mx_buyback: number
   // Vault / insurance
   vault_open: boolean
   vault_stakers: number
@@ -73,6 +72,12 @@ export interface DailyRow {
   vault_profit_today: number
   platform_vault_income_today: number
   insurance_payout_today: number
+  // Vault reserve
+  vault_reserve_usdc: number
+  vault_new_stake_today_usdc: number
+  // Referral
+  referral_payout_today: number
+  total_referral_payout: number
 }
 
 // ---- Milestone definitions ----
@@ -113,18 +118,20 @@ export function simulate(p: ModelParams): DailyRow[] {
   let prev_treasury_end = p.treasury_start_usdc
   let prev_price = lp_token_current > 0 ? lp_usdc_current / lp_token_current : p.price_token
 
-  let cum_ar_emitted = 0
-  let cum_ar_burned = 0
-  let cum_ar_sold = 0
+  let cum_mx_emitted = 0
+  let cum_mx_deferred = 0
+  let cum_mx_sold = 0
   let cum_mx_burned = 0
-  let cum_usdc_redemptions = 0
-  let cum_ar_buyback = 0
+  let cum_mx_redemptions = 0
+  let cum_mx_buyback = 0
 
   let junior_cum = 0
   let senior_cum = 0
 
   // Track peak price for drawdown computation
   let peak_price = prev_price
+
+  let cum_referral_payout = 0
 
   const burnRate = blendRateMap(p.burn_schedule, p.blend_mode)
   const jMilestones = getJuniorMilestones(p)
@@ -162,6 +169,14 @@ export function simulate(p: ModelParams): DailyRow[] {
     }
     if (senior_new > 0) {
       seniorCohorts.push({ start_day: day, users: senior_new, invest_usdc: p.senior_invest_usdc, earned_usdc: 0, is_maxed: false })
+    }
+
+    // ---- Referral payout ----
+    let referral_payout_today = 0
+    if (p.referral_enabled && p.referral_bonus_ratio > 0) {
+      const new_invest = junior_new * p.junior_invest_usdc + senior_new * p.senior_invest_usdc
+      referral_payout_today = new_invest * p.referral_bonus_ratio * p.referral_participation_rate
+      cum_referral_payout += referral_payout_today
     }
 
     const current_price = lp_token_current > 0 ? lp_usdc_current / lp_token_current : p.price_token
@@ -213,34 +228,34 @@ export function simulate(p: ModelParams): DailyRow[] {
 
     const node_payout_usdc_today = junior_payout_raw + senior_payout_raw
     const node_payout_usdc_capped = junior_payout_capped + senior_payout_capped
-    const payout_ar_today = current_price > 0 ? node_payout_usdc_capped / current_price : 0
-    cum_ar_emitted += payout_ar_today
+    const payout_mx_today = current_price > 0 ? node_payout_usdc_capped / current_price : 0
+    cum_mx_emitted += payout_mx_today
 
     // ================================================================
     // STEP 2: Burn schedule + release queue
     // ================================================================
     const burn_rate = burnRate
     const instant_release_ratio = 1 - burn_rate
-    const instant_release_ar = payout_ar_today * instant_release_ratio
-    const linear_total_ar = payout_ar_today * burn_rate
-    cum_ar_burned += linear_total_ar
+    const instant_release_mx = payout_mx_today * instant_release_ratio
+    const linear_total_mx = payout_mx_today * burn_rate
+    cum_mx_deferred += linear_total_mx
 
-    if (linear_total_ar > 0 && p.linear_release_days > 0) {
-      releaseQueue.push({ remaining_ar: linear_total_ar, days_left: p.linear_release_days })
+    if (linear_total_mx > 0 && p.linear_release_days > 0) {
+      releaseQueue.push({ remaining_mx: linear_total_mx, days_left: p.linear_release_days })
     }
 
-    let linear_release_ar = 0
+    let linear_release_mx = 0
     for (let i = releaseQueue.length - 1; i >= 0; i--) {
       const item = releaseQueue[i]
       if (item.days_left <= 0) { releaseQueue.splice(i, 1); continue }
-      const portion = item.remaining_ar / item.days_left
-      linear_release_ar += portion
-      item.remaining_ar -= portion
+      const portion = item.remaining_mx / item.days_left
+      linear_release_mx += portion
+      item.remaining_mx -= portion
       item.days_left -= 1
       if (item.days_left <= 0) releaseQueue.splice(i, 1)
     }
 
-    const released_ar_today = instant_release_ar + linear_release_ar
+    const released_mx_today = instant_release_mx + linear_release_mx
 
     // ================================================================
     // STEP 3: MX Burn Gate — BEFORE selling AR
@@ -248,12 +263,12 @@ export function simulate(p: ModelParams): DailyRow[] {
     let mx_buy_usdc = 0
     let mx_burn_amount = 0
 
-    if (p.mx_burn_per_withdraw_ratio > 0 && released_ar_today > 0) {
+    if (p.mx_burn_per_withdraw_ratio > 0 && released_mx_today > 0) {
       let withdraw_value_usdc: number
       if (p.mx_burn_mode === "usdc_value") {
         withdraw_value_usdc = node_payout_usdc_capped
       } else {
-        withdraw_value_usdc = payout_ar_today * current_price
+        withdraw_value_usdc = payout_mx_today * current_price
       }
       mx_buy_usdc = withdraw_value_usdc * p.mx_burn_per_withdraw_ratio
       mx_burn_amount = p.mx_price_usdc > 0 ? mx_buy_usdc / p.mx_price_usdc : 0
@@ -261,32 +276,22 @@ export function simulate(p: ModelParams): DailyRow[] {
     }
 
     // ================================================================
-    // STEP 4: Treasury redemption (兑付) — reduces AR hitting market
+    // STEP 4: Treasury redemption (兑付) — 直接扣减释放的 MX，不消耗国库 USDC
     // ================================================================
-    let redemption_usdc = 0
-    let ar_redeemed_equivalent = 0
-    let released_ar_after_redemption = released_ar_today
+    let redemption_mx = 0
+    let released_mx_after_redemption = released_mx_today
 
-    if (p.treasury_defense_enabled && p.treasury_redemption_ratio > 0 && node_payout_usdc_capped > 0) {
-      let budget = p.treasury_redemption_ratio * node_payout_usdc_capped
-      // Cannot exceed treasury - min buffer
-      const available = prev_treasury_end - trigger.treasury_min_buffer
-      if (available > 0) {
-        budget = Math.min(budget, available)
-      } else {
-        budget = 0
-      }
-      redemption_usdc = budget
-      ar_redeemed_equivalent = current_price > 0 ? redemption_usdc / current_price : 0
-      released_ar_after_redemption = Math.max(0, released_ar_today - ar_redeemed_equivalent)
-      cum_usdc_redemptions += redemption_usdc
+    if (p.treasury_defense_enabled && p.treasury_redemption_ratio > 0 && released_mx_today > 0) {
+      redemption_mx = released_mx_today * p.treasury_redemption_ratio
+      released_mx_after_redemption = released_mx_today - redemption_mx
+      cum_mx_redemptions += redemption_mx
     }
 
     // ================================================================
     // STEP 5: Sell pressure
     // ================================================================
-    const sold_ar_today = released_ar_after_redemption * p.sell_pressure_ratio
-    cum_ar_sold += sold_ar_today
+    const sold_mx_today = released_mx_after_redemption * p.sell_pressure_ratio
+    cum_mx_sold += sold_mx_today
 
     // ================================================================
     // STEP 6: AMM AR->USDC swap (sell)
@@ -296,10 +301,10 @@ export function simulate(p: ModelParams): DailyRow[] {
     let usdc_out = 0
     let price_after_sell = current_price
 
-    if (sold_ar_today > 0 && lp_usdc_current > 0 && lp_token_current > 0) {
+    if (sold_mx_today > 0 && lp_usdc_current > 0 && lp_token_current > 0) {
       const k = lp_usdc_current * lp_token_current
-      const ar_eff = sold_ar_today * (1 - p.amm_fee_rate)
-      const new_lp_token = lp_token_current + ar_eff
+      const mx_eff = sold_mx_today * (1 - p.amm_fee_rate)
+      const new_lp_token = lp_token_current + mx_eff
       const new_lp_usdc = k / new_lp_token
       usdc_out = lp_usdc_current - new_lp_usdc
       lp_usdc_current = new_lp_usdc
@@ -312,7 +317,7 @@ export function simulate(p: ModelParams): DailyRow[] {
     // ================================================================
     let treasury_defense_active = false
     let buyback_budget_usdc = 0
-    let ar_buyback_out = 0
+    let mx_buyback_out = 0
     let price_after_buyback = price_after_sell
 
     // Compute treasury inflow first (needed for budget)
@@ -380,7 +385,7 @@ export function simulate(p: ModelParams): DailyRow[] {
 
       // Cannot exceed treasury - min buffer
       // Use projected treasury: begin + inflow - other outflows so far
-      const projected = prev_treasury_end + treasury_inflow_raw - redemption_usdc - (p.mx_burn_from === "treasury" ? mx_buy_usdc : 0)
+      const projected = prev_treasury_end + treasury_inflow_raw - (p.mx_burn_from === "treasury" ? mx_buy_usdc : 0)
       const max_spend = Math.max(0, projected - trigger.treasury_min_buffer)
       budget = Math.min(budget, max_spend)
 
@@ -390,15 +395,15 @@ export function simulate(p: ModelParams): DailyRow[] {
         const usdc_eff = buyback_budget_usdc * (1 - p.amm_fee_rate)
         const new_lp_usdc = lp_usdc_current + usdc_eff
         const new_lp_token = k / new_lp_usdc
-        ar_buyback_out = lp_token_current - new_lp_token
+        mx_buyback_out = lp_token_current - new_lp_token
         lp_usdc_current = new_lp_usdc
         lp_token_current = new_lp_token
         price_after_buyback = lp_usdc_current / lp_token_current
-        cum_ar_buyback += ar_buyback_out
+        cum_mx_buyback += mx_buyback_out
       }
     }
 
-    const net_sell_ar = sold_ar_today - ar_buyback_out
+    const net_sell_mx = sold_mx_today - mx_buyback_out
 
     // ================================================================
     // STEP 8: Final price
@@ -421,11 +426,11 @@ export function simulate(p: ModelParams): DailyRow[] {
     const treasury_begin = prev_treasury_end
     const treasury_inflow = treasury_inflow_raw
     const treasury_outflow =
-      redemption_usdc +
       buyback_budget_usdc +
       (p.mx_burn_from === "treasury" ? mx_buy_usdc : 0) +
       (p.lp_owned_by_treasury ? usdc_out : 0) +
-      insurance_payout_today
+      insurance_payout_today +
+      referral_payout_today
     const treasury_end = treasury_begin + treasury_inflow - treasury_outflow
     prev_treasury_end = treasury_end
 
@@ -445,20 +450,20 @@ export function simulate(p: ModelParams): DailyRow[] {
       senior_maxed_cohorts: senior_maxed,
       junior_daily_income_usdc: p.junior_package_usdc * p.junior_daily_rate,
       senior_daily_income_usdc: p.senior_package_usdc * p.senior_daily_rate,
-      node_payout_usdc_today, node_payout_usdc_capped, payout_ar_today,
+      node_payout_usdc_today, node_payout_usdc_capped, payout_mx_today,
       mx_buy_usdc, mx_burn_amount,
-      redemption_usdc, ar_redeemed_equivalent,
+      redemption_mx,
       burn_rate, instant_release_ratio,
-      instant_release_ar, linear_release_ar,
-      released_ar_today, released_ar_after_redemption, sold_ar_today,
+      instant_release_mx, linear_release_mx,
+      released_mx_today, released_mx_after_redemption, sold_mx_today,
       lp_usdc_begin, lp_token_begin, usdc_out, price_after_sell,
-      treasury_defense_active, buyback_budget_usdc, ar_buyback_out, price_after_buyback, net_sell_ar,
+      treasury_defense_active, buyback_budget_usdc, mx_buyback_out, price_after_buyback, net_sell_mx,
       lp_usdc_end: lp_usdc_current, lp_token_end: lp_token_current,
       amm_fee_rate: p.amm_fee_rate, price_end,
       treasury_begin, treasury_inflow, treasury_outflow, treasury_end,
       sold_over_lp, price_change,
-      total_ar_emitted: cum_ar_emitted, total_ar_burned: cum_ar_burned, total_ar_sold: cum_ar_sold,
-      total_mx_burned: cum_mx_burned, total_usdc_redemptions: cum_usdc_redemptions, total_ar_buyback: cum_ar_buyback,
+      total_mx_emitted: cum_mx_emitted, total_mx_deferred: cum_mx_deferred, total_mx_sold: cum_mx_sold,
+      total_mx_burned: cum_mx_burned, total_mx_redemptions: cum_mx_redemptions, total_mx_buyback: cum_mx_buyback,
       vault_open: vault_opened,
       vault_stakers,
       vault_total_staked_usdc,
@@ -467,6 +472,10 @@ export function simulate(p: ModelParams): DailyRow[] {
         ? vault_total_staked_usdc / (junior_cum * p.junior_invest_usdc + senior_cum * p.senior_invest_usdc)
         : 0,
       vault_profit_today, platform_vault_income_today, insurance_payout_today,
+      vault_reserve_usdc: vault_total_staked_usdc,
+      vault_new_stake_today_usdc: vault_total_staked_usdc - (rows.length > 0 ? rows[rows.length - 1].vault_total_staked_usdc : 0),
+      referral_payout_today,
+      total_referral_payout: cum_referral_payout,
     })
   }
 

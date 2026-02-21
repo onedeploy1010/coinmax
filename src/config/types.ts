@@ -80,7 +80,7 @@ export interface ModelParams {
   // ---- MX Burn Gate (Section A) ----
   mx_price_usdc: number
   mx_burn_per_withdraw_ratio: number
-  mx_burn_mode: "usdc_value" | "ar_amount"
+  mx_burn_mode: "usdc_value" | "mx_amount"
   mx_amm_enabled: boolean
   mx_burn_from: "user" | "treasury"
 
@@ -89,6 +89,21 @@ export interface ModelParams {
   treasury_buyback_ratio: number
   treasury_redemption_ratio: number
   treasury_buyback_trigger: TreasuryBuybackTrigger
+
+  // ---- 推荐奖金 ----
+  referral_enabled: boolean
+  referral_bonus_ratio: number
+  referral_participation_rate: number
+
+  // ---- 市场计划目标 ----
+  target_junior_90: number
+  target_senior_90: number
+  target_sold_over_lp: number
+  target_drawdown: number
+  target_treasury_stress: number
+  target_min_lp_usdc: number
+  target_vault_staker_ratio: number
+  target_vault_staked_ratio: number
 }
 
 // ---- Cohort-based accounting ----
@@ -104,7 +119,7 @@ export interface Cohort {
 // ---- Release queue ----
 
 export interface ReleaseItem {
-  remaining_ar: number
+  remaining_mx: number
   days_left: number
 }
 
@@ -141,14 +156,15 @@ export interface StressSummary {
   final_treasury: number
   max_sold_over_lp: number
   total_payout_usdc: number
-  total_ar_emitted: number
-  total_ar_buyback: number
+  total_mx_emitted: number
+  total_mx_buyback: number
   total_mx_burned: number
-  total_usdc_redemptions: number
+  total_mx_redemptions: number
   net_sell_pressure: number
   vault_stakers: number
   vault_total_staked_usdc: number
   vault_platform_income: number
+  total_referral_payout: number
   fail_reason: string | null
 }
 
@@ -187,11 +203,11 @@ export interface StageCheckpoint {
   max_sold_over_lp: number
   total_payout_usdc: number
   total_principal_inflow: number
-  total_ar_emitted: number
-  total_ar_burned: number
-  total_ar_sold: number
-  total_ar_buyback: number
-  total_usdc_redemptions: number
+  total_mx_emitted: number
+  total_mx_deferred: number
+  total_mx_sold: number
+  total_mx_buyback: number
+  total_mx_redemptions: number
   total_mx_burned: number
   net_sell_pressure: number
   junior_cum: number
@@ -206,8 +222,29 @@ export interface StageCheckpoint {
   vault_stakers: number
   vault_total_staked_usdc: number
   vault_platform_income: number
+  vault_reserve_usdc: number
+  total_referral_payout: number
   vault_kpi: "PASS" | "FAIL" | "N/A"
   recommendation: string
+
+  // ---- 节点招募 KPI ----
+  junior_target: number
+  senior_target: number
+  junior_completion: number        // junior_cum / junior_target
+  senior_completion: number
+  total_node_target: number
+  total_node_completion: number
+  node_growth_velocity: number     // avg new nodes/day in this period
+
+  // ---- 质押业绩 KPI ----
+  vault_staker_target: number
+  vault_staker_completion: number  // vault_stakers / vault_staker_target
+  vault_staked_target: number
+  vault_staked_completion: number  // vault_total_staked_usdc / vault_staked_target
+
+  // ---- 市场成本 ----
+  avg_invest_per_node: number      // total_principal_inflow / total_nodes
+  referral_cost_ratio: number      // total_referral_payout / total_principal_inflow
 }
 
 export interface OptimizerConstraints {

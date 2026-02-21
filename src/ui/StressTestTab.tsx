@@ -250,10 +250,10 @@ export const StressTestTab: React.FC<Props> = ({ config, isMobile }) => {
                     <td>{fmt(r.final_treasury, 2)}</td>
                     <td>{pct(r.max_sold_over_lp)}</td>
                     <td>{fmt(r.total_payout_usdc, 2)}</td>
-                    <td>{fmt(r.total_ar_emitted, 2)}</td>
-                    <td>{fmt(r.total_ar_buyback, 2)}</td>
+                    <td>{fmt(r.total_mx_emitted, 2)}</td>
+                    <td>{fmt(r.total_mx_buyback, 2)}</td>
                     <td>{fmt(r.total_mx_burned, 2)}</td>
-                    <td>{fmt(r.total_usdc_redemptions, 2)}</td>
+                    <td>{fmt(r.total_mx_redemptions, 2)}</td>
                     <td>{fmt(r.net_sell_pressure, 2)}</td>
                     <td className={r.fail_reason ? "cell-fail" : "cell-pass"}>
                       {r.fail_reason ?? "通过"}

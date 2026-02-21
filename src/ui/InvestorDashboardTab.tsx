@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react"
 import type { DailyRow } from "../engine/simulate"
-import type { ModelParams, StageCheckpoint, PressureTargets, GrowthTargets } from "../config/types"
-import { computeStageReport, DEFAULT_PRESSURE_TARGETS, DEFAULT_GROWTH_TARGETS, STAGE_DAYS } from "../engine/stageReport"
+import type { ModelParams } from "../config/types"
+import { computeStageReport, STAGE_DAYS } from "../engine/stageReport"
 
 interface Props {
   rows: DailyRow[]
@@ -58,12 +58,10 @@ const Tooltip: React.FC<TooltipProps> = ({ text }) => (
 
 export const InvestorDashboardTab: React.FC<Props> = ({ rows, config }) => {
   const [selectedDay, setSelectedDay] = useState<number | null>(null)
-  const [pressureTargets] = useState<PressureTargets>(DEFAULT_PRESSURE_TARGETS)
-  const [growthTargets] = useState<GrowthTargets>(DEFAULT_GROWTH_TARGETS)
 
   const stages = useMemo(
-    () => computeStageReport(rows, config, pressureTargets, growthTargets),
-    [rows, config, pressureTargets, growthTargets],
+    () => computeStageReport(rows, config),
+    [rows, config],
   )
 
   if (rows.length === 0) return <div className="overview-empty">请先运行模拟</div>
@@ -138,6 +136,7 @@ export const InvestorDashboardTab: React.FC<Props> = ({ rows, config }) => {
           <div className="summary-card-value">${fmt(last.vault_total_staked_usdc, 0)}</div>
           <div className="summary-card-sub">
             质押用户 {fmt(last.vault_stakers, 0)} | 平台收入 ${latestStage ? fmt(latestStage.vault_platform_income, 0) : "0"}
+            {last.vault_open && <> | 可调用储备金 ${fmt(last.vault_reserve_usdc, 0)}</>}
           </div>
         </div>
       </div>
@@ -173,12 +172,46 @@ export const InvestorDashboardTab: React.FC<Props> = ({ rows, config }) => {
         <div className="stage-snapshot">
           <h3>第 {selectedStage.day} 天快照</h3>
           <div className="snapshot-explanation">
-            在第 {selectedStage.day} 天：已累计 {selectedStage.junior_cum + selectedStage.senior_cum} 节点用户；
+            在第 {selectedStage.day} 天：节点 {fmt(selectedStage.junior_cum + selectedStage.senior_cum, 0)}/{fmt(selectedStage.total_node_target, 0)} (完成率 {pct(selectedStage.total_node_completion)})；
             代币价格 ${fmt(selectedStage.price, 6)}；
-            日卖压影响 LP 比例最高 {pct(selectedStage.max_sold_over_lp)}；
-            国库余额 ${fmt(selectedStage.treasury, 0)}。
+            国库 ${fmt(selectedStage.treasury, 0)}，支付率 {pct(selectedStage.payout_ratio)}；
+            {selectedStage.vault_open
+              ? <>质押用户 {fmt(selectedStage.vault_stakers, 0)} (完成率 {pct(selectedStage.vault_staker_completion)})，质押金额 ${fmt(selectedStage.vault_total_staked_usdc, 0)}。</>
+              : <>金库尚未开启。</>
+            }
           </div>
 
+          {/* ---- 节点招募 KPI ---- */}
+          <h4 className="snapshot-section-title">节点招募</h4>
+          <div className="snapshot-grid">
+            <div className="snapshot-item">
+              <div className="snapshot-label">初级节点</div>
+              <div className="snapshot-value">{fmt(selectedStage.junior_cum, 0)} / {fmt(selectedStage.junior_target, 0)}</div>
+              <div className="snapshot-sub" style={{ color: selectedStage.junior_completion >= 0.8 ? "#22c55e" : "#f59e0b" }}>
+                完成率 {pct(selectedStage.junior_completion)}
+              </div>
+            </div>
+            <div className="snapshot-item">
+              <div className="snapshot-label">高级节点</div>
+              <div className="snapshot-value">{fmt(selectedStage.senior_cum, 0)} / {fmt(selectedStage.senior_target, 0)}</div>
+              <div className="snapshot-sub" style={{ color: selectedStage.senior_completion >= 0.8 ? "#22c55e" : "#f59e0b" }}>
+                完成率 {pct(selectedStage.senior_completion)}
+              </div>
+            </div>
+            <div className="snapshot-item">
+              <div className="snapshot-label">总节点完成率 <Tooltip text={TOOLTIPS.growth} /></div>
+              <div className="snapshot-value" style={{ color: selectedStage.growth_kpi === "PASS" ? "#22c55e" : "#ef4444" }}>
+                {pct(selectedStage.total_node_completion)}
+              </div>
+            </div>
+            <div className="snapshot-item">
+              <div className="snapshot-label">日均新增速度</div>
+              <div className="snapshot-value">{fmt(selectedStage.node_growth_velocity, 1)} 人/天</div>
+            </div>
+          </div>
+
+          {/* ---- 现金流 & 稳定性 ---- */}
+          <h4 className="snapshot-section-title">现金流 & 稳定性</h4>
           <div className="snapshot-grid">
             <div className="snapshot-item">
               <div className="snapshot-label">价格 <Tooltip text={TOOLTIPS.drawdown} /></div>
@@ -197,8 +230,10 @@ export const InvestorDashboardTab: React.FC<Props> = ({ rows, config }) => {
               </div>
             </div>
             <div className="snapshot-item">
-              <div className="snapshot-label">LP USDC</div>
-              <div className="snapshot-value">${fmt(selectedStage.lp_usdc, 0)}</div>
+              <div className="snapshot-label">压力指数 <Tooltip text={TOOLTIPS.pressure} /></div>
+              <div className="snapshot-value" style={{ color: PRESSURE_COLORS[selectedStage.pressure_label] }}>
+                {selectedStage.pressure_score.toFixed(1)} ({PRESSURE_LABELS_CN[selectedStage.pressure_label]})
+              </div>
             </div>
             <div className="snapshot-item">
               <div className="snapshot-label">国库</div>
@@ -211,15 +246,9 @@ export const InvestorDashboardTab: React.FC<Props> = ({ rows, config }) => {
               </div>
             </div>
             <div className="snapshot-item">
-              <div className="snapshot-label">压力指数 <Tooltip text={TOOLTIPS.pressure} /></div>
-              <div className="snapshot-value" style={{ color: PRESSURE_COLORS[selectedStage.pressure_label] }}>
-                {selectedStage.pressure_score.toFixed(1)} ({PRESSURE_LABELS_CN[selectedStage.pressure_label]})
-              </div>
-            </div>
-            <div className="snapshot-item">
-              <div className="snapshot-label">增长KPI <Tooltip text={TOOLTIPS.growth} /></div>
-              <div className="snapshot-value" style={{ color: selectedStage.growth_kpi === "PASS" ? "#22c55e" : "#ef4444" }}>
-                {KPI_LABELS_CN[selectedStage.growth_kpi]}
+              <div className="snapshot-label">LP USDC <Tooltip text={TOOLTIPS.liquidity} /></div>
+              <div className="snapshot-value" style={{ color: selectedStage.liquidity_label === "PASS" ? "#22c55e" : "#ef4444" }}>
+                ${fmt(selectedStage.lp_usdc, 0)}
               </div>
             </div>
             <div className="snapshot-item">
@@ -229,19 +258,79 @@ export const InvestorDashboardTab: React.FC<Props> = ({ rows, config }) => {
               </div>
             </div>
             <div className="snapshot-item">
-              <div className="snapshot-label">流动性 <Tooltip text={TOOLTIPS.liquidity} /></div>
-              <div className="snapshot-value" style={{ color: selectedStage.liquidity_label === "PASS" ? "#22c55e" : "#ef4444" }}>
-                {KPI_LABELS_CN[selectedStage.liquidity_label]}
-              </div>
+              <div className="snapshot-label">总本金流入</div>
+              <div className="snapshot-value">${fmt(selectedStage.total_principal_inflow, 0)}</div>
+            </div>
+            <div className="snapshot-item">
+              <div className="snapshot-label">总支付</div>
+              <div className="snapshot-value">${fmt(selectedStage.total_payout_usdc, 0)}</div>
             </div>
             <div className="snapshot-item">
               <div className="snapshot-label">累计回购 MX</div>
-              <div className="snapshot-value" style={{ color: "#06b6d4" }}>{fmt(selectedStage.total_ar_buyback, 0)}</div>
+              <div className="snapshot-value" style={{ color: "#06b6d4" }}>{fmt(selectedStage.total_mx_buyback, 0)}</div>
             </div>
             <div className="snapshot-item">
               <div className="snapshot-label">累计 MX 销毁</div>
               <div className="snapshot-value" style={{ color: "#f97316" }}>{fmt(selectedStage.total_mx_burned, 0)}</div>
             </div>
+          </div>
+
+          {/* ---- 金库质押 KPI ---- */}
+          <h4 className="snapshot-section-title">金库质押</h4>
+          <div className="snapshot-grid">
+            <div className="snapshot-item">
+              <div className="snapshot-label">金库状态</div>
+              <div className="snapshot-value" style={{ color: selectedStage.vault_kpi === "PASS" ? "#22c55e" : selectedStage.vault_kpi === "FAIL" ? "#ef4444" : "#666" }}>
+                {selectedStage.vault_open ? KPI_LABELS_CN[selectedStage.vault_kpi] : "未开启"}
+              </div>
+            </div>
+            <div className="snapshot-item">
+              <div className="snapshot-label">质押用户</div>
+              <div className="snapshot-value">{fmt(selectedStage.vault_stakers, 0)} / {fmt(selectedStage.vault_staker_target, 0)}</div>
+              {selectedStage.vault_open && (
+                <div className="snapshot-sub" style={{ color: selectedStage.vault_staker_completion >= 1 ? "#22c55e" : "#f59e0b" }}>
+                  完成率 {pct(selectedStage.vault_staker_completion)}
+                </div>
+              )}
+            </div>
+            <div className="snapshot-item">
+              <div className="snapshot-label">质押金额</div>
+              <div className="snapshot-value">${fmt(selectedStage.vault_total_staked_usdc, 0)}</div>
+              {selectedStage.vault_open && (
+                <div className="snapshot-sub" style={{ color: selectedStage.vault_staked_completion >= 1 ? "#22c55e" : "#f59e0b" }}>
+                  目标 ${fmt(selectedStage.vault_staked_target, 0)} (完成率 {pct(selectedStage.vault_staked_completion)})
+                </div>
+              )}
+            </div>
+            <div className="snapshot-item">
+              <div className="snapshot-label">平台收入</div>
+              <div className="snapshot-value">${fmt(selectedStage.vault_platform_income, 0)}</div>
+            </div>
+            <div className="snapshot-item">
+              <div className="snapshot-label">储备金</div>
+              <div className="snapshot-value" style={{ color: "#8b5cf6" }}>${fmt(selectedStage.vault_reserve_usdc, 0)}</div>
+            </div>
+          </div>
+
+          {/* ---- 市场成本 ---- */}
+          <h4 className="snapshot-section-title">市场成本</h4>
+          <div className="snapshot-grid">
+            <div className="snapshot-item">
+              <div className="snapshot-label">人均投入</div>
+              <div className="snapshot-value">${fmt(selectedStage.avg_invest_per_node, 0)}</div>
+            </div>
+            <div className="snapshot-item">
+              <div className="snapshot-label">推荐成本率</div>
+              <div className="snapshot-value" style={{ color: selectedStage.referral_cost_ratio > 0.1 ? "#f59e0b" : "#22c55e" }}>
+                {pct(selectedStage.referral_cost_ratio)}
+              </div>
+            </div>
+            {selectedStage.total_referral_payout > 0 && (
+              <div className="snapshot-item">
+                <div className="snapshot-label">累计推荐奖金</div>
+                <div className="snapshot-value" style={{ color: "#ec4899" }}>${fmt(selectedStage.total_referral_payout, 0)}</div>
+              </div>
+            )}
           </div>
 
           <div className="snapshot-recommendation">
@@ -260,16 +349,15 @@ export const InvestorDashboardTab: React.FC<Props> = ({ rows, config }) => {
                 <tr>
                   <th>天数</th>
                   <th>节点</th>
+                  <th>节点完成率</th>
                   <th>价格</th>
-                  <th>LP USDC</th>
                   <th>国库</th>
+                  <th>支付率</th>
                   <th>压力</th>
-                  <th>增长</th>
-                  <th>可持续</th>
-                  <th>流动性</th>
                   <th>金库</th>
-                  <th>质押用户</th>
+                  <th>质押完成率</th>
                   <th>质押金额</th>
+                  <th>人均投入</th>
                 </tr>
               </thead>
               <tbody>
@@ -277,20 +365,19 @@ export const InvestorDashboardTab: React.FC<Props> = ({ rows, config }) => {
                   <tr key={s.day} className={selectedDay === s.day ? "row-highlight" : ""} onClick={() => setSelectedDay(s.day)} style={{ cursor: "pointer" }}>
                     <td>{s.day}</td>
                     <td>{s.junior_cum + s.senior_cum}</td>
+                    <td style={{ color: s.total_node_completion >= 0.8 ? "#22c55e" : "#f59e0b" }}>{pct(s.total_node_completion)}</td>
                     <td>${fmt(s.price, 4)}</td>
-                    <td>${fmt(s.lp_usdc, 0)}</td>
                     <td>${fmt(s.treasury, 0)}</td>
+                    <td style={{ color: SUST_COLORS[s.sustainability_label] }}>{pct(s.payout_ratio)}</td>
                     <td>
                       <span className="pressure-badge" style={{ background: PRESSURE_COLORS[s.pressure_label] + "22", color: PRESSURE_COLORS[s.pressure_label] }}>
                         {PRESSURE_LABELS_CN[s.pressure_label]}
                       </span>
                     </td>
-                    <td style={{ color: s.growth_kpi === "PASS" ? "#22c55e" : "#ef4444" }}>{KPI_LABELS_CN[s.growth_kpi]}</td>
-                    <td style={{ color: SUST_COLORS[s.sustainability_label] }}>{SUST_LABELS_CN[s.sustainability_label]}</td>
-                    <td style={{ color: s.liquidity_label === "PASS" ? "#22c55e" : "#ef4444" }}>{KPI_LABELS_CN[s.liquidity_label]}</td>
                     <td style={{ color: s.vault_kpi === "PASS" ? "#22c55e" : s.vault_kpi === "FAIL" ? "#ef4444" : "#666" }}>{s.vault_open ? KPI_LABELS_CN[s.vault_kpi] : "未开启"}</td>
-                    <td>{fmt(s.vault_stakers, 0)}</td>
+                    <td style={{ color: s.vault_staker_completion >= 1 ? "#22c55e" : "#f59e0b" }}>{s.vault_open ? pct(s.vault_staker_completion) : "-"}</td>
                     <td>${fmt(s.vault_total_staked_usdc, 0)}</td>
+                    <td>${fmt(s.avg_invest_per_node, 0)}</td>
                   </tr>
                 ))}
               </tbody>

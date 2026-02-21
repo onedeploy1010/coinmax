@@ -84,4 +84,19 @@ export const defaultConfig: ModelParams = {
     lp_usdc_min_threshold: 20000,
     treasury_min_buffer: 50000,
   },
+
+  // 推荐奖金
+  referral_enabled: false,
+  referral_bonus_ratio: 0.05,
+  referral_participation_rate: 0.70,
+
+  // 市场计划目标
+  target_junior_90: 2000,
+  target_senior_90: 500,
+  target_sold_over_lp: 0.25,
+  target_drawdown: 0.50,
+  target_treasury_stress: 0.10,
+  target_min_lp_usdc: 20000,
+  target_vault_staker_ratio: 0.30,
+  target_vault_staked_ratio: 0.10,
 }
