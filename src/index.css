@@ -246,6 +246,11 @@ body {
   opacity: 0.9;
 }
 
+.btn-run:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .btn-sm {
   padding: 4px 10px;
   background: var(--accent);
@@ -298,6 +303,7 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
 }
 
 .tab-bar {
@@ -307,6 +313,7 @@ body {
   background: var(--bg-secondary);
   padding: 0 16px;
   overflow-x: auto;
+  flex-shrink: 0;
 }
 
 .tab-btn {
@@ -371,6 +378,12 @@ body {
   font-size: 1.3rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+.kpi-sub {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 2px;
 }
 
 /* ===== Charts ===== */
@@ -460,6 +473,116 @@ tbody tr:hover {
   background: rgba(99, 102, 241, 0.08);
 }
 
+/* ===== Stress Test ===== */
+.stress-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.stress-config {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.stress-config-mobile {
+  grid-template-columns: 1fr;
+}
+
+.stress-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.stress-section h3 {
+  font-size: 0.9rem;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+
+.stress-range-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.stress-input {
+  width: 80px;
+  padding: 4px 6px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  outline: none;
+}
+
+.stress-input:focus {
+  border-color: var(--accent);
+}
+
+.stress-input-key {
+  width: 150px;
+}
+
+.stress-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.stress-results {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stress-summary-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.stress-thresholds {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.stress-thresholds h3 {
+  font-size: 0.9rem;
+  color: var(--warning);
+  margin-bottom: 10px;
+}
+
+/* Row coloring for pass/fail */
+.row-fail {
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.row-pass {
+  background: transparent;
+}
+
+.row-fail:hover {
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.cell-fail {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.cell-pass {
+  color: var(--success);
+  font-weight: 600;
+}
+
 /* ===== Running overlay ===== */
 .running-overlay {
   position: absolute;
@@ -509,6 +632,18 @@ tbody tr:hover {
 .mobile .tab-btn {
   padding: 8px 14px;
   font-size: 0.85rem;
+}
+
+.mobile .stress-summary-bar {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.mobile .stress-range-row {
+  flex-wrap: wrap;
+}
+
+.mobile .stress-input-key {
+  width: 100%;
 }
 
 /* ===== Scrollbar ===== */

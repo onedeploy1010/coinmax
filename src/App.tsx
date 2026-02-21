@@ -6,14 +6,16 @@ import { ParamPanel } from "./ui/ParamPanel"
 import { OverviewTab } from "./ui/OverviewTab"
 import { ChartsTab } from "./ui/ChartsTab"
 import { TableTab } from "./ui/TableTab"
+import { StressTestTab } from "./ui/StressTestTab"
 import { useIsMobile } from "./hooks/use-mobile"
 
-type TabKey = "overview" | "charts" | "table"
+type TabKey = "overview" | "charts" | "table" | "stress"
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "overview", label: "概览" },
   { key: "charts", label: "图表" },
   { key: "table", label: "数据表" },
+  { key: "stress", label: "压力测试" },
 ]
 
 export default function App() {
@@ -26,7 +28,6 @@ export default function App() {
 
   const handleRun = useCallback(() => {
     setRunning(true)
-    // Use setTimeout to allow UI to update before heavy computation
     setTimeout(() => {
       const result = simulate(config)
       setRows(result)
@@ -43,12 +44,13 @@ export default function App() {
         return <ChartsTab rows={rows} />
       case "table":
         return <TableTab rows={rows} />
+      case "stress":
+        return <StressTestTab config={config} isMobile={isMobile} />
     }
   }
 
   return (
     <div className={`app-root ${isMobile ? "mobile" : "desktop"}`}>
-      {/* Header */}
       <header className="app-header">
         <div className="header-left">
           {isMobile && (
@@ -61,7 +63,6 @@ export default function App() {
       </header>
 
       <div className="app-body">
-        {/* Left panel */}
         {(panelOpen || !isMobile) && (
           <>
             {isMobile && <div className="overlay" onClick={() => setPanelOpen(false)} />}
@@ -76,7 +77,6 @@ export default function App() {
           </>
         )}
 
-        {/* Main content */}
         <main className="main-content">
           {running && (
             <div className="running-overlay">
@@ -85,7 +85,6 @@ export default function App() {
             </div>
           )}
 
-          {/* Tabs */}
           <div className="tab-bar">
             {TABS.map((t) => (
               <button

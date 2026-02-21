@@ -43,6 +43,7 @@ export const defaultConfig: ModelParams = {
 
   subscription_monthly_fee: 39,
   subscription_half_year_fee: 198,
+  insurance_enabled: false,
   insurance_min_usdc: 100,
   insurance_max_usdc: 2000,
   insurance_payout_low_loss_multiple: 3,
@@ -55,4 +56,22 @@ export const defaultConfig: ModelParams = {
   lp_owned_by_treasury: false,
 
   node_payout_mode: 1,
+
+  // MX Burn Gate
+  mx_price_usdc: 1,
+  mx_burn_per_withdraw_ratio: 0.10,
+  mx_burn_mode: "usdc_value",
+  mx_amm_enabled: false,
+  mx_burn_from: "user",
+
+  // Treasury Defense
+  treasury_defense_enabled: true,
+  treasury_buyback_ratio: 0.10,
+  treasury_redemption_ratio: 0,
+  treasury_buyback_trigger: {
+    drawdown_threshold: -0.30,
+    sold_over_lp_threshold: 0.20,
+    lp_usdc_min_threshold: 20000,
+    treasury_min_buffer: 50000,
+  },
 }

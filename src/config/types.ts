@@ -1,5 +1,12 @@
 export type GrowthMode = 1 | 2
 
+export interface TreasuryBuybackTrigger {
+  drawdown_threshold: number
+  sold_over_lp_threshold: number
+  lp_usdc_min_threshold: number
+  treasury_min_buffer: number
+}
+
 export interface ModelParams {
   price_token: number
   lp_usdc: number
@@ -43,6 +50,7 @@ export interface ModelParams {
 
   subscription_monthly_fee: number
   subscription_half_year_fee: number
+  insurance_enabled: boolean
   insurance_min_usdc: number
   insurance_max_usdc: number
   insurance_payout_low_loss_multiple: number
@@ -55,4 +63,90 @@ export interface ModelParams {
   lp_owned_by_treasury: boolean
 
   node_payout_mode: 1 | 2
+
+  // ---- MX Burn Gate (Section A) ----
+  mx_price_usdc: number
+  mx_burn_per_withdraw_ratio: number
+  mx_burn_mode: "usdc_value" | "ar_amount"
+  mx_amm_enabled: boolean
+  mx_burn_from: "user" | "treasury"
+
+  // ---- Treasury Defense Toolkit (Section B) ----
+  treasury_defense_enabled: boolean
+  treasury_buyback_ratio: number
+  treasury_redemption_ratio: number
+  treasury_buyback_trigger: TreasuryBuybackTrigger
+}
+
+// ---- Cohort-based accounting ----
+
+export interface Cohort {
+  start_day: number
+  users: number
+  invest_usdc: number
+  earned_usdc: number
+  is_maxed: boolean
+}
+
+// ---- Release queue ----
+
+export interface ReleaseItem {
+  remaining_ar: number
+  days_left: number
+}
+
+// ---- Stress test ----
+
+export interface StressRange {
+  key: string
+  min: number
+  max: number
+  step: number
+}
+
+export interface FailRules {
+  min_treasury_usdc: number
+  min_lp_usdc: number
+  max_price_drawdown: number
+  max_sold_over_lp: number
+}
+
+export interface StressConfig {
+  ranges: StressRange[]
+  failRules: FailRules
+  maxRuns: number
+}
+
+export interface StressSummary {
+  params: Record<string, number>
+  final_price: number
+  min_price: number
+  max_drawdown: number
+  final_lp_usdc: number
+  min_lp_usdc: number
+  min_treasury: number
+  final_treasury: number
+  max_sold_over_lp: number
+  total_payout_usdc: number
+  total_ar_emitted: number
+  total_ar_buyback: number
+  total_mx_burned: number
+  total_usdc_redemptions: number
+  net_sell_pressure: number
+  fail_reason: string | null
+}
+
+export interface ThresholdResult {
+  key: string
+  label: string
+  safe_value: number
+  direction: "max" | "min"
+}
+
+// ---- Optimizer (Section F) ----
+
+export interface OptimizeResult {
+  params: Partial<ModelParams>
+  before: StressSummary
+  after: StressSummary
 }

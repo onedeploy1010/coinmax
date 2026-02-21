@@ -1,5 +1,5 @@
 import React, { useState } from "react"
-import type { ModelParams, GrowthMode } from "../config/types"
+import type { ModelParams } from "../config/types"
 import { loadScenarios, saveScenario, deleteScenario } from "../utils/scenario"
 
 interface Props {
@@ -61,7 +61,7 @@ const GROUPS: ParamGroup[] = [
     ],
   },
   {
-    label: "解锁天数",
+    label: "V级解锁天数",
     fields: [
       { key: "junior_target_v2_days", label: "初级 V2 天", type: "number" },
       { key: "junior_target_v3_days", label: "初级 V3 天", type: "number" },
@@ -73,7 +73,7 @@ const GROUPS: ParamGroup[] = [
     ],
   },
   {
-    label: "最大回本 / 销毁",
+    label: "3x 上限 / 销毁",
     fields: [
       { key: "max_out_multiple", label: "最大回本倍数", type: "number", step: 0.1 },
       { key: "cap_include_static", label: "含静态上限", type: "boolean" },
@@ -96,6 +96,7 @@ const GROUPS: ParamGroup[] = [
     fields: [
       { key: "subscription_monthly_fee", label: "月订阅费", type: "number" },
       { key: "subscription_half_year_fee", label: "半年订阅费", type: "number" },
+      { key: "insurance_enabled", label: "启用保险模块", type: "boolean" },
       { key: "insurance_min_usdc", label: "保险最小 USDC", type: "number" },
       { key: "insurance_max_usdc", label: "保险最大 USDC", type: "number" },
       { key: "insurance_payout_low_loss_multiple", label: "低损赔付倍数", type: "number", step: 0.1 },
