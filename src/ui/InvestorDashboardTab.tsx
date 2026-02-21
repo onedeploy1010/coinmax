@@ -26,13 +26,23 @@ const SUST_COLORS: Record<string, string> = {
   UNSUSTAINABLE: "#ef4444",
 }
 
+const PRESSURE_LABELS_CN: Record<string, string> = {
+  SAFE: "安全", WATCH: "关注", RISK: "风险", DANGER: "危险",
+}
+const SUST_LABELS_CN: Record<string, string> = {
+  HEALTHY: "健康", TIGHT: "趋紧", UNSUSTAINABLE: "不可持续",
+}
+const KPI_LABELS_CN: Record<string, string> = {
+  PASS: "达标", FAIL: "未达标", "N/A": "N/A",
+}
+
 const TOOLTIPS: Record<string, string> = {
-  pressure: "Pressure Index (0-100) measures sell pressure vs LP, price drawdown, and treasury stress. Lower is safer.",
-  growth: "Growth KPI checks if node acquisition meets 80% of targets interpolated from your 90-day goals.",
-  sustainability: "Payout ratio = total payouts / total principal inflow. Below 60% is healthy, above 100% is unsustainable.",
-  liquidity: "Checks if LP USDC balance stays above the minimum threshold (default 20,000).",
-  drawdown: "Maximum peak-to-trough price drop as a percentage. Lower values indicate price stability.",
-  sold_over_lp: "Maximum daily USDC sold as a fraction of LP USDC. High values indicate liquidity stress.",
+  pressure: "压力指数(0-100)，综合衡量卖压/LP、价格回撤和国库压力，越低越安全。",
+  growth: "增长KPI检查节点招募是否达到90天目标的80%线性插值。",
+  sustainability: "支付比率 = 总支付 / 总本金流入。低于60%为健康，超过100%不可持续。",
+  liquidity: "检查LP USDC余额是否保持在最低阈值（默认20,000）以上。",
+  drawdown: "最大峰谷跌幅百分比，数值越低表示价格越稳定。",
+  sold_over_lp: "日卖出USDC占LP USDC的最大比例，数值越高表示流动性压力越大。",
 }
 
 interface TooltipProps {
@@ -78,9 +88,9 @@ export const InvestorDashboardTab: React.FC<Props> = ({ rows, config }) => {
       <div className="top-cards">
         <div className="summary-card">
           <div className="summary-card-header">
-            <span className="summary-card-title">增长 Growth</span>
+            <span className="summary-card-title">增长</span>
             <span className="summary-badge" style={{ background: growthStatus === "PASS" ? "#22c55e22" : "#ef444422", color: growthStatus === "PASS" ? "#22c55e" : "#ef4444" }}>
-              {growthStatus}
+              {KPI_LABELS_CN[growthStatus]}
             </span>
           </div>
           <div className="summary-card-value">{fmt(totalNodes, 0)} 节点</div>
@@ -91,9 +101,9 @@ export const InvestorDashboardTab: React.FC<Props> = ({ rows, config }) => {
 
         <div className="summary-card">
           <div className="summary-card-header">
-            <span className="summary-card-title">稳定性 Stability</span>
+            <span className="summary-card-title">稳定性</span>
             <span className="summary-badge" style={{ background: (PRESSURE_COLORS[stabilityStatus] ?? "#666") + "22", color: PRESSURE_COLORS[stabilityStatus] ?? "#666" }}>
-              {stabilityStatus}
+              {PRESSURE_LABELS_CN[stabilityStatus] ?? stabilityStatus}
             </span>
           </div>
           <div className="summary-card-value">${fmt(last.price_end, 6)}</div>
@@ -104,9 +114,9 @@ export const InvestorDashboardTab: React.FC<Props> = ({ rows, config }) => {
 
         <div className="summary-card">
           <div className="summary-card-header">
-            <span className="summary-card-title">现金流 Cashflow</span>
+            <span className="summary-card-title">现金流</span>
             <span className="summary-badge" style={{ background: (SUST_COLORS[cashflowStatus] ?? "#666") + "22", color: SUST_COLORS[cashflowStatus] ?? "#666" }}>
-              {cashflowStatus}
+              {SUST_LABELS_CN[cashflowStatus] ?? cashflowStatus}
             </span>
           </div>
           <div className="summary-card-value">${fmt(last.treasury_end, 0)}</div>
@@ -117,12 +127,12 @@ export const InvestorDashboardTab: React.FC<Props> = ({ rows, config }) => {
 
         <div className="summary-card">
           <div className="summary-card-header">
-            <span className="summary-card-title">金库 Vault</span>
+            <span className="summary-card-title">金库</span>
             <span className="summary-badge" style={{
               background: vaultStatus === "PASS" ? "#22c55e22" : vaultStatus === "FAIL" ? "#ef444422" : "#66666622",
               color: vaultStatus === "PASS" ? "#22c55e" : vaultStatus === "FAIL" ? "#ef4444" : "#666",
             }}>
-              {last.vault_open ? vaultStatus : "未开启"}
+              {last.vault_open ? KPI_LABELS_CN[vaultStatus] : "未开启"}
             </span>
           </div>
           <div className="summary-card-value">${fmt(last.vault_total_staked_usdc, 0)}</div>
@@ -134,7 +144,7 @@ export const InvestorDashboardTab: React.FC<Props> = ({ rows, config }) => {
 
       {/* Stage Day Pills */}
       <div className="stage-pills-section">
-        <h3>阶段里程碑 Stage Milestones</h3>
+        <h3>阶段里程碑</h3>
         <div className="stage-pills">
           {STAGE_DAYS.filter((d) => d <= config.sim_days).map((d) => {
             const stage = stages.find((s) => s.day === d)
@@ -146,10 +156,10 @@ export const InvestorDashboardTab: React.FC<Props> = ({ rows, config }) => {
                 style={{ borderColor: color }}
                 onClick={() => setSelectedDay(selectedDay === d ? null : d)}
               >
-                <span className="stage-pill-day">Day {d}</span>
+                <span className="stage-pill-day">第 {d} 天</span>
                 {stage && (
                   <span className="stage-pill-label" style={{ color }}>
-                    {stage.pressure_label}
+                    {PRESSURE_LABELS_CN[stage.pressure_label]}
                   </span>
                 )}
               </button>
@@ -161,7 +171,7 @@ export const InvestorDashboardTab: React.FC<Props> = ({ rows, config }) => {
       {/* Stage Snapshot Panel */}
       {selectedStage && (
         <div className="stage-snapshot">
-          <h3>Day {selectedStage.day} 快照</h3>
+          <h3>第 {selectedStage.day} 天快照</h3>
           <div className="snapshot-explanation">
             在第 {selectedStage.day} 天：已累计 {selectedStage.junior_cum + selectedStage.senior_cum} 节点用户；
             代币价格 ${fmt(selectedStage.price, 6)}；
@@ -203,25 +213,25 @@ export const InvestorDashboardTab: React.FC<Props> = ({ rows, config }) => {
             <div className="snapshot-item">
               <div className="snapshot-label">压力指数 <Tooltip text={TOOLTIPS.pressure} /></div>
               <div className="snapshot-value" style={{ color: PRESSURE_COLORS[selectedStage.pressure_label] }}>
-                {selectedStage.pressure_score.toFixed(1)} ({selectedStage.pressure_label})
+                {selectedStage.pressure_score.toFixed(1)} ({PRESSURE_LABELS_CN[selectedStage.pressure_label]})
               </div>
             </div>
             <div className="snapshot-item">
-              <div className="snapshot-label">增长 KPI <Tooltip text={TOOLTIPS.growth} /></div>
+              <div className="snapshot-label">增长KPI <Tooltip text={TOOLTIPS.growth} /></div>
               <div className="snapshot-value" style={{ color: selectedStage.growth_kpi === "PASS" ? "#22c55e" : "#ef4444" }}>
-                {selectedStage.growth_kpi}
+                {KPI_LABELS_CN[selectedStage.growth_kpi]}
               </div>
             </div>
             <div className="snapshot-item">
               <div className="snapshot-label">支付可持续性 <Tooltip text={TOOLTIPS.sustainability} /></div>
               <div className="snapshot-value" style={{ color: SUST_COLORS[selectedStage.sustainability_label] }}>
-                {selectedStage.sustainability_label} ({pct(selectedStage.payout_ratio)})
+                {SUST_LABELS_CN[selectedStage.sustainability_label]} ({pct(selectedStage.payout_ratio)})
               </div>
             </div>
             <div className="snapshot-item">
               <div className="snapshot-label">流动性 <Tooltip text={TOOLTIPS.liquidity} /></div>
               <div className="snapshot-value" style={{ color: selectedStage.liquidity_label === "PASS" ? "#22c55e" : "#ef4444" }}>
-                {selectedStage.liquidity_label}
+                {KPI_LABELS_CN[selectedStage.liquidity_label]}
               </div>
             </div>
             <div className="snapshot-item">
@@ -248,7 +258,7 @@ export const InvestorDashboardTab: React.FC<Props> = ({ rows, config }) => {
             <table>
               <thead>
                 <tr>
-                  <th>Day</th>
+                  <th>天数</th>
                   <th>节点</th>
                   <th>价格</th>
                   <th>LP USDC</th>
@@ -272,13 +282,13 @@ export const InvestorDashboardTab: React.FC<Props> = ({ rows, config }) => {
                     <td>${fmt(s.treasury, 0)}</td>
                     <td>
                       <span className="pressure-badge" style={{ background: PRESSURE_COLORS[s.pressure_label] + "22", color: PRESSURE_COLORS[s.pressure_label] }}>
-                        {s.pressure_label}
+                        {PRESSURE_LABELS_CN[s.pressure_label]}
                       </span>
                     </td>
-                    <td style={{ color: s.growth_kpi === "PASS" ? "#22c55e" : "#ef4444" }}>{s.growth_kpi}</td>
-                    <td style={{ color: SUST_COLORS[s.sustainability_label] }}>{s.sustainability_label}</td>
-                    <td style={{ color: s.liquidity_label === "PASS" ? "#22c55e" : "#ef4444" }}>{s.liquidity_label}</td>
-                    <td style={{ color: s.vault_kpi === "PASS" ? "#22c55e" : s.vault_kpi === "FAIL" ? "#ef4444" : "#666" }}>{s.vault_open ? s.vault_kpi : "未开启"}</td>
+                    <td style={{ color: s.growth_kpi === "PASS" ? "#22c55e" : "#ef4444" }}>{KPI_LABELS_CN[s.growth_kpi]}</td>
+                    <td style={{ color: SUST_COLORS[s.sustainability_label] }}>{SUST_LABELS_CN[s.sustainability_label]}</td>
+                    <td style={{ color: s.liquidity_label === "PASS" ? "#22c55e" : "#ef4444" }}>{KPI_LABELS_CN[s.liquidity_label]}</td>
+                    <td style={{ color: s.vault_kpi === "PASS" ? "#22c55e" : s.vault_kpi === "FAIL" ? "#ef4444" : "#666" }}>{s.vault_open ? KPI_LABELS_CN[s.vault_kpi] : "未开启"}</td>
                     <td>{fmt(s.vault_stakers, 0)}</td>
                     <td>${fmt(s.vault_total_staked_usdc, 0)}</td>
                   </tr>

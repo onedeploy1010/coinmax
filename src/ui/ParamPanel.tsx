@@ -17,12 +17,13 @@ type FieldDef =
   | { key: string; label: string; type: "select"; options: { value: string | number; label: string }[] }
   | { key: string; label: string; type: "record" }
 
-type ParamTab = "basic" | "nodes" | "defense" | "advanced"
+type ParamTab = "basic" | "nodes" | "defense" | "rates" | "advanced"
 
 const PARAM_TABS: { key: ParamTab; label: string }[] = [
   { key: "basic", label: "基础" },
   { key: "nodes", label: "节点" },
   { key: "defense", label: "防御" },
+  { key: "rates", label: "费率" },
   { key: "advanced", label: "高级" },
 ]
 
@@ -76,14 +77,11 @@ const TAB_GROUPS: Record<ParamTab, ParamGroup[]> = {
       ],
     },
     {
-      label: "3x 上限 / 销毁释放",
+      label: "3x 上限",
       fields: [
         { key: "max_out_multiple", label: "最大回本倍数", type: "number", step: 0.1 },
         { key: "cap_include_static", label: "含静态上限", type: "boolean" },
         { key: "cap_include_dynamic", label: "含动态上限", type: "boolean" },
-        { key: "withdraw_delay_days", label: "提现延迟天数", type: "number" },
-        { key: "burn_schedule", label: "销毁计划", type: "record" },
-        { key: "linear_release_days", label: "线性释放天数", type: "number" },
       ],
     },
   ],
@@ -111,11 +109,12 @@ const TAB_GROUPS: Record<ParamTab, ParamGroup[]> = {
       ],
     },
   ],
-  advanced: [
+  rates: [
+    // Vault rates and burn schedule rendered via RecordEditor — groups used as placeholders
     {
-      label: "Vault 质押",
+      label: "Vault 质押费率",
       fields: [
-        { key: "vault_rates", label: "Vault 费率", type: "record" },
+        { key: "vault_rates", label: "锁仓天数 → 日费率", type: "record" },
         { key: "blend_mode", label: "混合模式", type: "select", options: [
           { value: "aggressive", label: "激进市场" },
           { value: "longterm", label: "长线市场" },
@@ -124,8 +123,27 @@ const TAB_GROUPS: Record<ParamTab, ParamGroup[]> = {
         ] },
         { key: "platform_fee_ratio", label: "平台费率", type: "number", step: 0.01 },
         { key: "early_unstake_penalty_ratio", label: "提前解押罚金率", type: "number", step: 0.01 },
+      ],
+    },
+    {
+      label: "MX 销毁计划",
+      fields: [
+        { key: "burn_schedule", label: "持有天数 → 销毁比例", type: "record" },
+        { key: "linear_release_days", label: "线性释放天数", type: "number" },
+      ],
+    },
+  ],
+  advanced: [
+    {
+      label: "金库开启条件",
+      fields: [
         { key: "vault_open_day", label: "金库开启日", type: "number" },
         { key: "vault_open_on_node_full", label: "节点招满开启", type: "boolean" },
+      ],
+    },
+    {
+      label: "金库用户增长",
+      fields: [
         { key: "vault_convert_ratio", label: "节点转化率", type: "number", step: 0.01 },
         { key: "vault_monthly_new", label: "月新增质押用户", type: "number" },
         { key: "vault_user_growth_rate", label: "质押用户增长率", type: "number", step: 0.01 },
@@ -171,6 +189,72 @@ function deepSet(obj: any, path: string, val: any): any {
   for (let i = 0; i < keys.length - 1; i++) cur = cur[keys[i]]
   cur[keys[keys.length - 1]] = val
   return clone
+}
+
+// ---- RecordEditor: per-key editable rows for Record<number,number> ----
+
+const RecordEditor: React.FC<{
+  label: string
+  keyLabel: string
+  valueLabel: string
+  value: Record<number, number>
+  valueStep: number
+  onChange: (v: Record<number, number>) => void
+}> = ({ label, keyLabel, valueLabel, value, valueStep, onChange }) => {
+  const entries = Object.entries(value)
+    .map(([k, v]) => [Number(k), v as number] as [number, number])
+    .sort((a, b) => a[0] - b[0])
+
+  const updateEntry = (oldKey: number, newKey: number, newVal: number) => {
+    const next: Record<number, number> = {}
+    for (const [k, v] of entries) {
+      if (k === oldKey) next[newKey] = newVal
+      else next[k] = v
+    }
+    onChange(next)
+  }
+
+  const removeEntry = (key: number) => {
+    const next: Record<number, number> = {}
+    for (const [k, v] of entries) {
+      if (k !== key) next[k] = v
+    }
+    onChange(next)
+  }
+
+  const addEntry = () => {
+    const maxKey = entries.length > 0 ? Math.max(...entries.map(([k]) => k)) : -1
+    onChange({ ...value, [maxKey + 1]: 0 })
+  }
+
+  return (
+    <div className="record-editor">
+      <div className="record-editor-header">
+        <span className="record-editor-title">{label}</span>
+        <button className="btn-xs" onClick={addEntry}>+ 添加</button>
+      </div>
+      <div className="record-editor-labels">
+        <span>{keyLabel}</span>
+        <span>{valueLabel}</span>
+        <span></span>
+      </div>
+      {entries.map(([k, v]) => (
+        <div className="record-editor-row" key={k}>
+          <input type="number" className="record-editor-key" value={k}
+            onChange={(e) => updateEntry(k, parseFloat(e.target.value) || 0, v)} />
+          <input type="number" className="record-editor-val" step={valueStep} value={v}
+            onChange={(e) => updateEntry(k, k, parseFloat(e.target.value) || 0)} />
+          <button className="btn-xs btn-danger record-editor-rm" onClick={() => removeEntry(k)}>x</button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ---- Record field configs for the "rates" tab ----
+const RECORD_CONFIGS: Record<string, { keyLabel: string; valueLabel: string; valueStep: number }> = {
+  vault_rates: { keyLabel: "锁仓天数", valueLabel: "日费率", valueStep: 0.001 },
+  burn_schedule: { keyLabel: "持有天数", valueLabel: "销毁比例", valueStep: 0.01 },
 }
 
 export const ParamPanel: React.FC<Props> = ({ config, onChange, onRun, isMobile }) => {
@@ -232,6 +316,21 @@ export const ParamPanel: React.FC<Props> = ({ config, onChange, onRun, isMobile 
       )
     }
     if (f.type === "record") {
+      const rc = RECORD_CONFIGS[f.key]
+      if (rc) {
+        return (
+          <RecordEditor
+            key={f.key}
+            label={f.label}
+            keyLabel={rc.keyLabel}
+            valueLabel={rc.valueLabel}
+            valueStep={rc.valueStep}
+            value={(val as Record<number, number>) ?? {}}
+            onChange={(v) => set(f.key, v)}
+          />
+        )
+      }
+      // Fallback: raw JSON input for unknown record fields
       return (
         <div className="field-row" key={f.key}>
           <label>{f.label}</label>

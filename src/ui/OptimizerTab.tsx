@@ -22,7 +22,6 @@ const OBJ_OPTIONS: { value: OptObjective; label: string; desc: string }[] = [
 
 const PARAM_LABELS: Record<string, string> = {
   sell_pressure_ratio: "卖压比例",
-  withdraw_delay_days: "提现延迟天数",
   lp_usdc: "LP USDC",
   growth_rate: "增长率",
   junior_monthly_new: "初级月新增",
@@ -31,6 +30,9 @@ const PARAM_LABELS: Record<string, string> = {
   treasury_redemption_ratio: "兑付比例",
   mx_burn_per_withdraw_ratio: "MX销毁比例",
   max_out_multiple: "最大回本倍数",
+  vault_convert_ratio: "质押转化率",
+  vault_monthly_new: "质押月新增",
+  vault_avg_stake_usdc: "人均质押USDC",
 }
 
 export const OptimizerTab: React.FC<Props> = ({ config, onApply, isMobile }) => {
@@ -113,6 +115,11 @@ export const OptimizerTab: React.FC<Props> = ({ config, onApply, isMobile }) => 
             <input type="number" step="0.05" value={constraints.max_sold_over_lp}
               onChange={(e) => setConstraints({ ...constraints, max_sold_over_lp: parseFloat(e.target.value) || 0 })} />
           </div>
+          <div className="field-row">
+            <label>最低质押用户</label>
+            <input type="number" value={constraints.min_vault_stakers}
+              onChange={(e) => setConstraints({ ...constraints, min_vault_stakers: parseFloat(e.target.value) || 0 })} />
+          </div>
         </div>
 
         {/* Search Ranges */}
@@ -160,6 +167,9 @@ export const OptimizerTab: React.FC<Props> = ({ config, onApply, isMobile }) => 
                   <th>最大回撤</th>
                   <th>最大卖压/LP</th>
                   <th>最低国库</th>
+                  <th>质押用户</th>
+                  <th>质押USDC</th>
+                  <th>平台收入</th>
                   <th>分数</th>
                   <th>结果</th>
                   <th>操作</th>
@@ -177,6 +187,9 @@ export const OptimizerTab: React.FC<Props> = ({ config, onApply, isMobile }) => 
                     <td>{pct(item.summary.max_drawdown)}</td>
                     <td>{pct(item.summary.max_sold_over_lp)}</td>
                     <td>${fmt(item.summary.min_treasury, 0)}</td>
+                    <td>{fmt(item.summary.vault_stakers, 0)}</td>
+                    <td>${fmt(item.summary.vault_total_staked_usdc, 0)}</td>
+                    <td>${fmt(item.summary.vault_platform_income, 0)}</td>
                     <td>{item.score.toFixed(1)}</td>
                     <td className={item.summary.fail_reason ? "cell-fail" : "cell-pass"}>
                       {item.summary.fail_reason ?? "通过"}
@@ -206,6 +219,9 @@ export const OptimizerTab: React.FC<Props> = ({ config, onApply, isMobile }) => 
                   { label: "最低 LP USDC", before: baseline.min_lp_usdc, after: selected.summary.min_lp_usdc, fmt: (v: number) => "$" + fmt(v, 0), higher_better: true },
                   { label: "最终国库", before: baseline.final_treasury, after: selected.summary.final_treasury, fmt: (v: number) => "$" + fmt(v, 0), higher_better: true },
                   { label: "净卖压", before: baseline.net_sell_pressure, after: selected.summary.net_sell_pressure, fmt: (v: number) => fmt(v, 0), higher_better: false },
+                  { label: "质押用户", before: baseline.vault_stakers, after: selected.summary.vault_stakers, fmt: (v: number) => fmt(v, 0), higher_better: true },
+                  { label: "质押USDC", before: baseline.vault_total_staked_usdc, after: selected.summary.vault_total_staked_usdc, fmt: (v: number) => "$" + fmt(v, 0), higher_better: true },
+                  { label: "平台收入", before: baseline.vault_platform_income, after: selected.summary.vault_platform_income, fmt: (v: number) => "$" + fmt(v, 0), higher_better: true },
                 ] as const).map((item) => {
                   const diff = item.after - item.before
                   const improved = item.higher_better ? diff > 0 : diff < 0

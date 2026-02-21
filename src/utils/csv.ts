@@ -57,6 +57,7 @@ export function exportStressCSV(results: StressSummary[]): void {
     "final_lp_usdc", "min_lp_usdc", "min_treasury", "final_treasury",
     "max_sold_over_lp", "total_payout_usdc", "total_ar_emitted",
     "total_ar_buyback", "total_mx_burned", "total_usdc_redemptions", "net_sell_pressure",
+    "vault_stakers", "vault_total_staked_usdc", "vault_platform_income",
     "fail_reason",
   ]
   const header = [...paramKeys, ...metricKeys].join(",")
@@ -103,7 +104,7 @@ export function exportStageCSV(stages: StageCheckpoint[]): void {
 export function exportOptimizerCSV(result: OptRunResult): void {
   if (result.results.length === 0) return
   const paramKeys = Object.keys(result.results[0].overrides)
-  const metricKeys = ["final_price", "max_drawdown", "max_sold_over_lp", "min_treasury", "min_lp_usdc", "final_treasury", "net_sell_pressure", "score", "fail_reason"]
+  const metricKeys = ["final_price", "max_drawdown", "max_sold_over_lp", "min_treasury", "min_lp_usdc", "final_treasury", "net_sell_pressure", "vault_stakers", "vault_total_staked_usdc", "vault_platform_income", "score", "fail_reason"]
   const header = ["rank", ...paramKeys, ...metricKeys].join(",")
   const lines = [header]
   for (const r of result.results) {
@@ -117,6 +118,9 @@ export function exportOptimizerCSV(result: OptRunResult): void {
       r.summary.min_lp_usdc.toFixed(2),
       r.summary.final_treasury.toFixed(2),
       r.summary.net_sell_pressure.toFixed(2),
+      r.summary.vault_stakers.toFixed(0),
+      r.summary.vault_total_staked_usdc.toFixed(2),
+      r.summary.vault_platform_income.toFixed(2),
       r.score.toFixed(2),
       r.summary.fail_reason ?? "PASS",
     ]

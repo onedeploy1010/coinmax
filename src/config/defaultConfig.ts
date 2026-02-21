@@ -35,7 +35,6 @@ export const defaultConfig: ModelParams = {
   cap_include_static: true,
   cap_include_dynamic: true,
 
-  withdraw_delay_days: 7,
   burn_schedule: { 0: 0.20, 7: 0.15, 15: 0.10, 30: 0.05, 60: 0.00 },
   linear_release_days: 30,
 

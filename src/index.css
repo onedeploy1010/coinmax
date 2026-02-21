@@ -684,6 +684,71 @@ tbody tr:hover {
   overflow-y: auto;
 }
 
+/* ===== RecordEditor ===== */
+.record-editor {
+  margin-bottom: 8px;
+}
+
+.record-editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.record-editor-title {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.record-editor-labels {
+  display: grid;
+  grid-template-columns: 1fr 1fr 28px;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  padding: 0 2px;
+}
+
+.record-editor-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 28px;
+  gap: 6px;
+  margin-bottom: 4px;
+  align-items: center;
+}
+
+.record-editor-key,
+.record-editor-val {
+  width: 100%;
+  padding: 5px 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.record-editor-key:focus,
+.record-editor-val:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+}
+
+.record-editor-rm {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.82rem;
+}
+
 /* ===== Investor Dashboard ===== */
 .investor-dashboard {
   display: flex;

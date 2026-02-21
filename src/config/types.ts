@@ -43,7 +43,6 @@ export interface ModelParams {
   cap_include_static: boolean
   cap_include_dynamic: boolean
 
-  withdraw_delay_days: number
   burn_schedule: Record<number, number>
   linear_release_days: number
 
@@ -147,6 +146,9 @@ export interface StressSummary {
   total_mx_burned: number
   total_usdc_redemptions: number
   net_sell_pressure: number
+  vault_stakers: number
+  vault_total_staked_usdc: number
+  vault_platform_income: number
   fail_reason: string | null
 }
 
@@ -213,6 +215,7 @@ export interface OptimizerConstraints {
   min_lp_usdc: number
   max_drawdown: number
   max_sold_over_lp: number
+  min_vault_stakers: number
 }
 
 export interface OptSearchRange {

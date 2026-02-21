@@ -20,6 +20,15 @@ const PRESSURE_COLORS: Record<string, string> = {
 const SUST_COLORS: Record<string, string> = {
   HEALTHY: "#22c55e", TIGHT: "#f59e0b", UNSUSTAINABLE: "#ef4444",
 }
+const PRESSURE_LABELS_CN: Record<string, string> = {
+  SAFE: "安全", WATCH: "关注", RISK: "风险", DANGER: "危险",
+}
+const SUST_LABELS_CN: Record<string, string> = {
+  HEALTHY: "健康", TIGHT: "趋紧", UNSUSTAINABLE: "不可持续",
+}
+const KPI_LABELS_CN: Record<string, string> = {
+  PASS: "达标", FAIL: "未达标", "N/A": "N/A",
+}
 
 export const StageReportTab: React.FC<Props> = ({ rows, config }) => {
   const [pressureTargets, setPressureTargets] = useState<PressureTargets>({ ...DEFAULT_PRESSURE_TARGETS })
@@ -86,7 +95,7 @@ export const StageReportTab: React.FC<Props> = ({ rows, config }) => {
           <table className="stage-table">
             <thead>
               <tr>
-                <th>Day</th>
+                <th>天数</th>
                 <th>初级/高级</th>
                 <th>价格</th>
                 <th>LP USDC</th>
@@ -118,14 +127,14 @@ export const StageReportTab: React.FC<Props> = ({ rows, config }) => {
                   <td>{s.pressure_score.toFixed(1)}</td>
                   <td>
                     <span className="pressure-badge" style={{ background: PRESSURE_COLORS[s.pressure_label] + "22", color: PRESSURE_COLORS[s.pressure_label] }}>
-                      {s.pressure_label}
+                      {PRESSURE_LABELS_CN[s.pressure_label]}
                     </span>
                   </td>
-                  <td style={{ color: s.growth_kpi === "PASS" ? "#22c55e" : "#ef4444" }}>{s.growth_kpi}</td>
-                  <td style={{ color: SUST_COLORS[s.sustainability_label] }}>{s.sustainability_label}</td>
-                  <td style={{ color: s.liquidity_label === "PASS" ? "#22c55e" : "#ef4444" }}>{s.liquidity_label}</td>
+                  <td style={{ color: s.growth_kpi === "PASS" ? "#22c55e" : "#ef4444" }}>{KPI_LABELS_CN[s.growth_kpi]}</td>
+                  <td style={{ color: SUST_COLORS[s.sustainability_label] }}>{SUST_LABELS_CN[s.sustainability_label]}</td>
+                  <td style={{ color: s.liquidity_label === "PASS" ? "#22c55e" : "#ef4444" }}>{KPI_LABELS_CN[s.liquidity_label]}</td>
                   <td style={{ color: s.vault_kpi === "PASS" ? "#22c55e" : s.vault_kpi === "FAIL" ? "#ef4444" : "#666" }}>
-                    {s.vault_open ? s.vault_kpi : "未开启"}
+                    {s.vault_open ? KPI_LABELS_CN[s.vault_kpi] : "未开启"}
                   </td>
                   <td>{fmt(s.vault_stakers, 0)}</td>
                   <td>${fmt(s.vault_total_staked_usdc, 0)}</td>
@@ -144,9 +153,9 @@ export const StageReportTab: React.FC<Props> = ({ rows, config }) => {
           {stages.map((s) => (
             <div className="stage-detail-card" key={s.day}>
               <div className="stage-detail-header">
-                <span className="stage-detail-day">Day {s.day}</span>
+                <span className="stage-detail-day">第 {s.day} 天</span>
                 <span className="pressure-badge" style={{ background: PRESSURE_COLORS[s.pressure_label] + "22", color: PRESSURE_COLORS[s.pressure_label] }}>
-                  {s.pressure_label} ({s.pressure_score.toFixed(0)})
+                  {PRESSURE_LABELS_CN[s.pressure_label]} ({s.pressure_score.toFixed(0)})
                 </span>
               </div>
               <div className="stage-detail-metrics">
@@ -156,7 +165,7 @@ export const StageReportTab: React.FC<Props> = ({ rows, config }) => {
                 <div><span className="sdm-label">支付率</span><span className="sdm-value">{pct(s.payout_ratio)}</span></div>
                 <div><span className="sdm-label">回购MX</span><span className="sdm-value">{fmt(s.total_ar_buyback, 0)}</span></div>
                 <div><span className="sdm-label">MX销毁</span><span className="sdm-value">{fmt(s.total_mx_burned, 0)}</span></div>
-                <div><span className="sdm-label">金库</span><span className="sdm-value" style={{ color: s.vault_kpi === "PASS" ? "#22c55e" : s.vault_kpi === "FAIL" ? "#ef4444" : "#666" }}>{s.vault_open ? s.vault_kpi : "未开启"}</span></div>
+                <div><span className="sdm-label">金库</span><span className="sdm-value" style={{ color: s.vault_kpi === "PASS" ? "#22c55e" : s.vault_kpi === "FAIL" ? "#ef4444" : "#666" }}>{s.vault_open ? KPI_LABELS_CN[s.vault_kpi] : "未开启"}</span></div>
                 <div><span className="sdm-label">质押用户</span><span className="sdm-value">{fmt(s.vault_stakers, 0)}</span></div>
                 <div><span className="sdm-label">质押USDC</span><span className="sdm-value">${fmt(s.vault_total_staked_usdc, 0)}</span></div>
                 <div><span className="sdm-label">平台收入</span><span className="sdm-value">${fmt(s.vault_platform_income, 0)}</span></div>

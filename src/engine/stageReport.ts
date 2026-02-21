@@ -104,31 +104,31 @@ export function computeStageReport(
     const recs: string[] = []
 
     if (pressureLabel === "DANGER") {
-      recs.push("Daily sell pressure too high vs LP; increase LP or reduce release/sell ratio.")
+      recs.push("日卖压相对LP过高，需增加LP深度或降低释放/卖出比例。")
       if (maxSol > pressureTargets.targetSoldOverLP) {
-        recs.push("Reduce sell_pressure_ratio or increase withdraw_delay_days.")
+        recs.push("建议降低卖压比例或提高销毁计划阈值。")
       }
       if (maxDrawdown > pressureTargets.targetDrawdown) {
-        recs.push("Increase treasury buyback ratio to stabilize price.")
+        recs.push("建议提高国库回购比例以稳定价格。")
       }
-      recs.push("Consider reducing growth_rate or junior_monthly_new if payout overwhelms.")
+      recs.push("若支付压力过大，考虑降低增长率或初级月新增。")
     } else if (pressureLabel === "RISK") {
-      recs.push("Approaching danger zone; consider reducing growth rate or increasing LP depth.")
+      recs.push("接近危险区域，建议降低增长速度或增加LP深度。")
     }
 
     if (sustLabel === "UNSUSTAINABLE") {
-      recs.push("Payout exceeds principal inflow; lower daily rate or reduce package bonus.")
-      recs.push("Consider setting usdc_payout_cover_ratio=0 (AR-only) if treasury collapses.")
+      recs.push("支付总额超过本金流入，建议降低日收益率或减少包奖励。")
+      recs.push("若国库崩溃可考虑设置USDC支付覆盖率为0（纯AR支付）。")
     } else if (sustLabel === "TIGHT") {
-      recs.push("Payout ratio tightening; monitor carefully and prepare to adjust rates.")
+      recs.push("支付比率趋紧，需密切监控并准备调整费率。")
     }
 
     if (liqLabel === "FAIL") {
-      recs.push("LP USDC below minimum threshold; increase LP depth or lower sell pressure.")
+      recs.push("LP USDC低于最低阈值，需增加LP深度或降低卖压。")
     }
 
     if (growthKpi === "FAIL" && sd >= 60) {
-      recs.push("Node growth below target; consider marketing or incentive adjustments.")
+      recs.push("节点增长未达目标，考虑加强营销或调整激励方案。")
     }
 
     // ---- KPI-E: Vault ----
@@ -147,7 +147,7 @@ export function computeStageReport(
     }
 
     if (recs.length === 0) {
-      recs.push("System operating within safe parameters. All KPIs healthy.")
+      recs.push("系统运行在安全参数范围内，所有KPI指标健康。")
     }
 
     result.push({

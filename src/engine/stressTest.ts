@@ -10,11 +10,13 @@ export function simulateSummary(cfg: ModelParams): Omit<StressSummary, "params" 
       min_treasury: cfg.treasury_start_usdc, final_treasury: cfg.treasury_start_usdc,
       max_sold_over_lp: 0, total_payout_usdc: 0, total_ar_emitted: 0,
       total_ar_buyback: 0, total_mx_burned: 0, total_usdc_redemptions: 0, net_sell_pressure: 0,
+      vault_stakers: 0, vault_total_staked_usdc: 0, vault_platform_income: 0,
     }
   }
   const last = rows[rows.length - 1]
   let min_price = Infinity, min_lp = Infinity, min_treasury = Infinity
   let max_sold_over_lp = 0, total_payout = 0, peak_price = 0
+  let vault_platform_income = 0
 
   for (const r of rows) {
     if (r.price_end < min_price) min_price = r.price_end
@@ -23,6 +25,7 @@ export function simulateSummary(cfg: ModelParams): Omit<StressSummary, "params" 
     if (r.treasury_end < min_treasury) min_treasury = r.treasury_end
     if (r.sold_over_lp > max_sold_over_lp) max_sold_over_lp = r.sold_over_lp
     total_payout += r.node_payout_usdc_capped
+    vault_platform_income += r.platform_vault_income_today
   }
 
   return {
@@ -36,6 +39,9 @@ export function simulateSummary(cfg: ModelParams): Omit<StressSummary, "params" 
     total_mx_burned: last.total_mx_burned,
     total_usdc_redemptions: last.total_usdc_redemptions,
     net_sell_pressure: last.total_ar_sold - last.total_ar_buyback,
+    vault_stakers: last.vault_stakers,
+    vault_total_staked_usdc: last.vault_total_staked_usdc,
+    vault_platform_income,
   }
 }
 
@@ -123,7 +129,6 @@ export function findThresholds(baseConfig: ModelParams, failRules: FailRules): T
 
 export const DEFAULT_OPT_RANGES: OptSearchRange[] = [
   { key: "sell_pressure_ratio", label: "卖压比例", values: [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9], enabled: true },
-  { key: "withdraw_delay_days", label: "提现延迟天数", values: [0, 7, 15, 30, 60], enabled: true },
   { key: "lp_usdc", label: "LP USDC", values: [50000, 100000, 150000, 200000, 250000, 300000, 400000, 500000], enabled: false },
   { key: "growth_rate", label: "增长率", values: [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6], enabled: false },
   { key: "junior_monthly_new", label: "初级月新增", values: [200, 300, 500, 700, 1000, 1500, 2000], enabled: false },
@@ -132,6 +137,9 @@ export const DEFAULT_OPT_RANGES: OptSearchRange[] = [
   { key: "treasury_redemption_ratio", label: "兑付比例", values: [0, 0.10, 0.20, 0.30, 0.40, 0.50], enabled: true },
   { key: "mx_burn_per_withdraw_ratio", label: "MX销毁比例", values: [0.05, 0.10, 0.15, 0.20, 0.25, 0.30], enabled: true },
   { key: "max_out_multiple", label: "最大回本倍数", values: [2, 3, 4], enabled: false },
+  { key: "vault_convert_ratio", label: "质押转化率", values: [0.1, 0.2, 0.3, 0.4, 0.5], enabled: false },
+  { key: "vault_monthly_new", label: "质押月新增", values: [100, 200, 300, 500, 700, 1000], enabled: false },
+  { key: "vault_avg_stake_usdc", label: "人均质押USDC", values: [200, 300, 500, 700, 1000], enabled: false },
 ]
 
 export const DEFAULT_OPT_CONSTRAINTS: OptimizerConstraints = {
@@ -139,6 +147,7 @@ export const DEFAULT_OPT_CONSTRAINTS: OptimizerConstraints = {
   min_lp_usdc: 20000,
   max_drawdown: 0.50,
   max_sold_over_lp: 0.25,
+  min_vault_stakers: 0,
 }
 
 function scoreResult(
@@ -146,15 +155,22 @@ function scoreResult(
   c: OptimizerConstraints,
   objective: OptObjective,
   treasuryStart: number,
+  totalNodes: number,
 ): { score: number; violated: boolean } {
-  const violated =
+  let violated =
     s.min_treasury < c.min_treasury_usdc ||
     s.min_lp_usdc < c.min_lp_usdc ||
     s.max_drawdown > c.max_drawdown ||
     s.max_sold_over_lp > c.max_sold_over_lp
 
+  if (c.min_vault_stakers > 0 && s.vault_stakers < c.min_vault_stakers) violated = true
+
   let score = violated ? -10000 : 0
   const tStress = treasuryStart > 0 ? Math.max(0, -s.min_treasury) / treasuryStart : 0
+
+  // Vault bonus: stakers meeting 30% of total nodes target
+  const vaultStakerTarget = totalNodes * 0.3
+  const vaultStakerRatio = vaultStakerTarget > 0 ? Math.min(1, s.vault_stakers / vaultStakerTarget) : 0
 
   switch (objective) {
     case "max_safety":
@@ -162,6 +178,7 @@ function scoreResult(
       score -= 400 * s.max_drawdown
       score -= 400 * s.max_sold_over_lp
       score -= 200 * tStress
+      score += 50 * vaultStakerRatio
       break
     case "balanced":
       score += 1000
@@ -169,6 +186,8 @@ function scoreResult(
       score -= 300 * s.max_drawdown
       score -= 300 * s.max_sold_over_lp
       score -= 200 * tStress
+      score += 80 * vaultStakerRatio
+      score += s.vault_platform_income * 0.002
       break
     case "max_growth":
       score += 1000
@@ -176,6 +195,8 @@ function scoreResult(
       score += s.total_ar_emitted * 0.001
       score -= 200 * s.max_drawdown
       score -= 200 * s.max_sold_over_lp
+      score += 80 * vaultStakerRatio
+      score += s.vault_platform_income * 0.003
       break
   }
 
@@ -228,7 +249,8 @@ export function runOptimizerV2(
     const cfg: any = { ...baseConfig }
     for (const [k, v] of Object.entries(overrides)) cfg[k] = v
     const summary = simulateSummary(cfg as ModelParams)
-    const { score } = scoreResult(summary, constraints, objective, baseConfig.treasury_start_usdc)
+    const totalNodes = cfg.junior_max_nodes + cfg.senior_max_nodes
+    const { score } = scoreResult(summary, constraints, objective, baseConfig.treasury_start_usdc, totalNodes)
 
     candidates.push({ overrides, summary, score })
     if (onProgress) onProgress(i + 1, maxIterations)
