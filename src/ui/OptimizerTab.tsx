@@ -125,7 +125,13 @@ export const OptimizerTab: React.FC<Props> = ({ config, onApply, isMobile }) => 
 
         {/* Search Ranges */}
         <div className="opt-section">
-          <h3>搜索参数</h3>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <h3>搜索参数</h3>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button className="btn-xs" onClick={() => setSearchRanges(searchRanges.map((r) => ({ ...r, enabled: true })))}>全选</button>
+              <button className="btn-xs" onClick={() => setSearchRanges(searchRanges.map((r) => ({ ...r, enabled: false })))}>全不选</button>
+            </div>
+          </div>
           <div className="opt-ranges">
             {searchRanges.map((r, i) => (
               <label key={r.key} className="opt-range-item">
