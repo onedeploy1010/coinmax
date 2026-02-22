@@ -7,8 +7,9 @@ function computeVlevelPassRate(
   discount: number,
   targets: Record<number, VlevelTarget>,
   enabled: boolean,
+  vault_opened: boolean,
 ): number {
-  if (!enabled) return 1.0
+  if (!enabled || !vault_opened) return 1.0
   const community_perf = vault_total_staked_usdc * discount
   const target = targets[vlevel]
   if (!target) return 1.0
@@ -276,6 +277,7 @@ export function simulate(p: ModelParams): DailyRow[] {
           m.required_vlevel, vault_total_staked_usdc,
           p.performance_discount_ratio,
           p.vlevel_targets, p.milestone_performance_enabled,
+          vault_opened,
         )
         current_pass_rate = pass_rate
 
@@ -320,6 +322,7 @@ export function simulate(p: ModelParams): DailyRow[] {
           m.required_vlevel, vault_total_staked_usdc,
           p.performance_discount_ratio,
           p.vlevel_targets, p.milestone_performance_enabled,
+          vault_opened,
         )
         current_pass_rate = pass_rate
 
