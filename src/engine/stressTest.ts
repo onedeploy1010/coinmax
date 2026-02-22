@@ -12,6 +12,7 @@ export function simulateSummary(cfg: ModelParams): Omit<StressSummary, "params" 
       total_mx_buyback: 0, total_mx_burned: 0, total_mx_redemptions: 0, net_sell_pressure: 0,
       vault_stakers: 0, vault_total_staked_usdc: 0, vault_platform_income: 0,
       total_referral_payout: 0,
+      perf_avg_pass_rate: 0, perf_total_penalty_usdc: 0,
     }
   }
   const last = rows[rows.length - 1]
@@ -19,6 +20,9 @@ export function simulateSummary(cfg: ModelParams): Omit<StressSummary, "params" 
   let max_sold_over_lp = 0, total_payout = 0, peak_price = 0
   let vault_platform_income = 0
   let total_referral_payout = 0
+  let perf_total_penalty = 0
+  let perf_pass_sum = 0
+  let perf_pass_count = 0
 
   for (const r of rows) {
     if (r.price_end < min_price) min_price = r.price_end
@@ -29,6 +33,11 @@ export function simulateSummary(cfg: ModelParams): Omit<StressSummary, "params" 
     total_payout += r.node_payout_usdc_capped
     vault_platform_income += r.platform_vault_income_today
     total_referral_payout += r.referral_payout_today
+    perf_total_penalty += r.perf_penalty_usdc
+    if (r.perf_pass_rate > 0) {
+      perf_pass_sum += r.perf_pass_rate
+      perf_pass_count++
+    }
   }
 
   return {
@@ -46,6 +55,8 @@ export function simulateSummary(cfg: ModelParams): Omit<StressSummary, "params" 
     vault_total_staked_usdc: last.vault_total_staked_usdc,
     vault_platform_income,
     total_referral_payout,
+    perf_avg_pass_rate: perf_pass_count > 0 ? perf_pass_sum / perf_pass_count : 0,
+    perf_total_penalty_usdc: perf_total_penalty,
   }
 }
 

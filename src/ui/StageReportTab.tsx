@@ -225,6 +225,9 @@ export const StageReportTab: React.FC<Props> = ({ rows, config }) => {
                   <th>压力指数</th>
                   <th>压力等级</th>
                   <th>流动性</th>
+                  {config.milestone_performance_enabled && <th>V级达标率</th>}
+                  {config.milestone_performance_enabled && <th>作废USDC</th>}
+                  {config.milestone_performance_enabled && <th>叠加USDC</th>}
                 </tr>
               </thead>
               <tbody>
@@ -248,6 +251,9 @@ export const StageReportTab: React.FC<Props> = ({ rows, config }) => {
                       </span>
                     </td>
                     <td style={{ color: s.liquidity_label === "PASS" ? "#22c55e" : "#ef4444" }}>{KPI_LABELS_CN[s.liquidity_label]}</td>
+                    {config.milestone_performance_enabled && <td style={{ color: s.perf_avg_pass_rate >= 0.5 ? "#22c55e" : "#ef4444" }}>{pct(s.perf_avg_pass_rate)}</td>}
+                    {config.milestone_performance_enabled && <td style={{ color: "#ef4444" }}>${fmt(s.perf_total_penalty_usdc, 0)}</td>}
+                    {config.milestone_performance_enabled && <td style={{ color: "#f59e0b" }}>${fmt(s.perf_total_carry_usdc, 0)}</td>}
                   </tr>
                 ))}
               </tbody>

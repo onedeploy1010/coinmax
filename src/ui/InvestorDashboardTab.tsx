@@ -312,6 +312,29 @@ export const InvestorDashboardTab: React.FC<Props> = ({ rows, config }) => {
             </div>
           </div>
 
+          {/* ---- V级业绩 ---- */}
+          {config.milestone_performance_enabled && (
+            <>
+              <h4 className="snapshot-section-title">V级业绩</h4>
+              <div className="snapshot-grid">
+                <div className="snapshot-item">
+                  <div className="snapshot-label">平均达标率</div>
+                  <div className="snapshot-value" style={{ color: selectedStage.perf_avg_pass_rate >= 0.5 ? "#22c55e" : "#ef4444" }}>
+                    {pct(selectedStage.perf_avg_pass_rate)}
+                  </div>
+                </div>
+                <div className="snapshot-item">
+                  <div className="snapshot-label">累计作废 USDC</div>
+                  <div className="snapshot-value" style={{ color: "#ef4444" }}>${fmt(selectedStage.perf_total_penalty_usdc, 0)}</div>
+                </div>
+                <div className="snapshot-item">
+                  <div className="snapshot-label">累计叠加 USDC</div>
+                  <div className="snapshot-value" style={{ color: "#f59e0b" }}>${fmt(selectedStage.perf_total_carry_usdc, 0)}</div>
+                </div>
+              </div>
+            </>
+          )}
+
           {/* ---- 市场成本 ---- */}
           <h4 className="snapshot-section-title">市场成本</h4>
           <div className="snapshot-grid">
@@ -358,6 +381,8 @@ export const InvestorDashboardTab: React.FC<Props> = ({ rows, config }) => {
                   <th>质押完成率</th>
                   <th>质押金额</th>
                   <th>人均投入</th>
+                  {config.milestone_performance_enabled && <th>达标率</th>}
+                  {config.milestone_performance_enabled && <th>作废额</th>}
                 </tr>
               </thead>
               <tbody>
@@ -378,6 +403,8 @@ export const InvestorDashboardTab: React.FC<Props> = ({ rows, config }) => {
                     <td style={{ color: s.vault_staker_completion >= 1 ? "#22c55e" : "#f59e0b" }}>{s.vault_open ? pct(s.vault_staker_completion) : "-"}</td>
                     <td>${fmt(s.vault_total_staked_usdc, 0)}</td>
                     <td>${fmt(s.avg_invest_per_node, 0)}</td>
+                    {config.milestone_performance_enabled && <td style={{ color: s.perf_avg_pass_rate >= 0.5 ? "#22c55e" : "#ef4444" }}>{pct(s.perf_avg_pass_rate)}</td>}
+                    {config.milestone_performance_enabled && <td style={{ color: "#ef4444" }}>${fmt(s.perf_total_penalty_usdc, 0)}</td>}
                   </tr>
                 ))}
               </tbody>

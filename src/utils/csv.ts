@@ -26,6 +26,7 @@ const HEADERS: (keyof DailyRow)[] = [
   "vault_profit_today", "platform_vault_income_today", "insurance_payout_today",
   "vault_reserve_usdc", "vault_new_stake_today_usdc",
   "referral_payout_today", "total_referral_payout",
+  "perf_pass_rate", "perf_penalty_usdc", "perf_carry_usdc",
 ]
 
 function downloadCSV(csv: string, filename: string) {
@@ -61,6 +62,7 @@ export function exportStressCSV(results: StressSummary[]): void {
     "total_mx_buyback", "total_mx_burned", "total_mx_redemptions", "net_sell_pressure",
     "vault_stakers", "vault_total_staked_usdc", "vault_platform_income",
     "total_referral_payout",
+    "perf_avg_pass_rate", "perf_total_penalty_usdc",
     "fail_reason",
   ]
   const header = [...paramKeys, ...metricKeys].join(",")
@@ -134,6 +136,11 @@ const STAGE_COLUMNS: { key: keyof StageCheckpoint; label: string }[] = [
   { key: "total_mx_burned", label: "MX累计销毁" },
   { key: "total_mx_redemptions", label: "MX累计兑付" },
   { key: "net_sell_pressure", label: "净卖压" },
+
+  // V级业绩
+  { key: "perf_avg_pass_rate", label: "V级达标率" },
+  { key: "perf_total_penalty_usdc", label: "累计作废USDC" },
+  { key: "perf_total_carry_usdc", label: "累计叠加USDC" },
 
   // 建议
   { key: "recommendation", label: "建议" },

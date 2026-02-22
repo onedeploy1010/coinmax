@@ -99,4 +99,17 @@ export const defaultConfig: ModelParams = {
   target_min_lp_usdc: 20000,
   target_vault_staker_ratio: 0.30,
   target_vault_staked_ratio: 0.10,
+
+  // V级业绩条件
+  milestone_performance_enabled: true,
+  performance_discount_ratio: 0.40,
+  vlevel_targets: {
+    1: { community_performance: 5000,    personal_invest: 100,    team_share: 0.10 },
+    2: { community_performance: 20000,   personal_invest: 500,    team_share: 0.15 },
+    3: { community_performance: 50000,   personal_invest: 1000,   team_share: 0.20 },
+    4: { community_performance: 100000,  personal_invest: 5000,   team_share: 0.25 },
+    5: { community_performance: 500000,  personal_invest: 10000,  team_share: 0.30 },
+    6: { community_performance: 1000000, personal_invest: 50000,  team_share: 0.40 },
+    7: { community_performance: 3000000, personal_invest: 100000, team_share: 0.50 },
+  },
 }

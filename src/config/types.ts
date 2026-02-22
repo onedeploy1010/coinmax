@@ -1,6 +1,12 @@
 export type GrowthMode = 1 | 2
 export type BlendMode = "aggressive" | "longterm" | "weighted" | "average"
 
+export interface VlevelTarget {
+  community_performance: number  // 小区业绩阈值
+  personal_invest: number        // 个人投资门槛
+  team_share: number             // 团队分成比例
+}
+
 export interface TreasuryBuybackTrigger {
   drawdown_threshold: number
   sold_over_lp_threshold: number
@@ -104,6 +110,11 @@ export interface ModelParams {
   target_min_lp_usdc: number
   target_vault_staker_ratio: number
   target_vault_staked_ratio: number
+
+  // ---- V级业绩条件 ----
+  milestone_performance_enabled: boolean
+  performance_discount_ratio: number
+  vlevel_targets: Record<number, VlevelTarget>
 }
 
 // ---- Cohort-based accounting ----
@@ -114,6 +125,7 @@ export interface Cohort {
   invest_usdc: number
   earned_usdc: number
   is_maxed: boolean
+  carry_usdc: number
 }
 
 // ---- Release queue ----
@@ -165,6 +177,8 @@ export interface StressSummary {
   vault_total_staked_usdc: number
   vault_platform_income: number
   total_referral_payout: number
+  perf_avg_pass_rate: number
+  perf_total_penalty_usdc: number
   fail_reason: string | null
 }
 
@@ -245,6 +259,11 @@ export interface StageCheckpoint {
   // ---- 市场成本 ----
   avg_invest_per_node: number      // total_principal_inflow / total_nodes
   referral_cost_ratio: number      // total_referral_payout / total_principal_inflow
+
+  // ---- V级业绩 ----
+  perf_avg_pass_rate: number
+  perf_total_penalty_usdc: number
+  perf_total_carry_usdc: number
 }
 
 export interface OptimizerConstraints {

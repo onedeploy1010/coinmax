@@ -1,5 +1,21 @@
-import type { ModelParams, Cohort, ReleaseItem } from "../config/types"
+import type { ModelParams, Cohort, ReleaseItem, VlevelTarget } from "../config/types"
 import { blendRateMap, blendKeyMap } from "./blendRates"
+
+function computeVlevelPassRate(
+  vlevel: number,
+  vault_total_staked_usdc: number,
+  total_active_agents: number,
+  discount: number,
+  targets: Record<number, VlevelTarget>,
+  enabled: boolean,
+): number {
+  if (!enabled) return 1.0
+  const avg_perf = vault_total_staked_usdc * discount / Math.max(total_active_agents, 1)
+  const target = targets[vlevel]
+  if (!target) return 1.0
+  const required = target.community_performance
+  return Math.max(0, Math.min(1, avg_perf / required))
+}
 
 export interface DailyRow {
   day: number
@@ -78,6 +94,10 @@ export interface DailyRow {
   // Referral
   referral_payout_today: number
   total_referral_payout: number
+  // V级业绩
+  perf_pass_rate: number
+  perf_penalty_usdc: number
+  perf_carry_usdc: number
 }
 
 // ---- Milestone definitions ----
@@ -85,22 +105,23 @@ export interface DailyRow {
 interface Milestone {
   target_days: number
   has_bonus: boolean
+  required_vlevel: number
 }
 
 function getJuniorMilestones(p: ModelParams): Milestone[] {
   return [
-    { target_days: p.junior_target_v2_days, has_bonus: false },
-    { target_days: p.junior_target_v3_days, has_bonus: true },
+    { target_days: p.junior_target_v2_days, has_bonus: false, required_vlevel: 2 },
+    { target_days: p.junior_target_v3_days, has_bonus: true, required_vlevel: 3 },
   ]
 }
 
 function getSeniorMilestones(p: ModelParams): Milestone[] {
   return [
-    { target_days: p.senior_target_v1_days, has_bonus: false },
-    { target_days: p.senior_target_v2_days, has_bonus: false },
-    { target_days: p.senior_target_v3_days, has_bonus: false },
-    { target_days: p.senior_target_v4_days, has_bonus: false },
-    { target_days: p.senior_target_v6_days, has_bonus: true },
+    { target_days: p.senior_target_v1_days, has_bonus: false, required_vlevel: 1 },
+    { target_days: p.senior_target_v2_days, has_bonus: false, required_vlevel: 2 },
+    { target_days: p.senior_target_v3_days, has_bonus: false, required_vlevel: 3 },
+    { target_days: p.senior_target_v4_days, has_bonus: false, required_vlevel: 4 },
+    { target_days: p.senior_target_v6_days, has_bonus: true, required_vlevel: 6 },
   ]
 }
 
@@ -165,10 +186,10 @@ export function simulate(p: ModelParams): DailyRow[] {
     senior_cum += senior_new
 
     if (junior_new > 0) {
-      juniorCohorts.push({ start_day: day, users: junior_new, invest_usdc: p.junior_invest_usdc, earned_usdc: 0, is_maxed: false })
+      juniorCohorts.push({ start_day: day, users: junior_new, invest_usdc: p.junior_invest_usdc, earned_usdc: 0, is_maxed: false, carry_usdc: 0 })
     }
     if (senior_new > 0) {
-      seniorCohorts.push({ start_day: day, users: senior_new, invest_usdc: p.senior_invest_usdc, earned_usdc: 0, is_maxed: false })
+      seniorCohorts.push({ start_day: day, users: senior_new, invest_usdc: p.senior_invest_usdc, earned_usdc: 0, is_maxed: false, carry_usdc: 0 })
     }
 
     // ---- Referral payout ----
@@ -182,44 +203,149 @@ export function simulate(p: ModelParams): DailyRow[] {
     const current_price = lp_token_current > 0 ? lp_usdc_current / lp_token_current : p.price_token
 
     // ================================================================
-    // STEP 1: Milestone payouts
+    // PRE-STEP: Vault calculation (needed for V-level performance check)
     // ================================================================
+    // ---- Vault phase check ----
+    if (!vault_opened) {
+      const cond1 = p.vault_open_day > 0 && day >= p.vault_open_day
+      const cond2 = p.vault_open_on_node_full && junior_cum >= p.junior_max_nodes && senior_cum >= p.senior_max_nodes
+      if (cond1 || cond2) {
+        vault_opened = true
+        vault_open_day_actual = day
+      }
+    }
+
+    // ---- Vault stakers & principal ----
+    let vault_stakers = 0
+    let vault_total_staked_usdc = 0
+    let vault_profit_today = 0
+    let platform_vault_income_today = 0
+
+    if (vault_opened) {
+      const days_since_open = day - vault_open_day_actual
+      const months_since_open = days_since_open / 30
+
+      const convert_users = (junior_cum + senior_cum) * p.vault_convert_ratio
+
+      let external_users = 0
+      const full_months = Math.floor(months_since_open)
+      for (let m = 0; m < full_months; m++) {
+        external_users += p.vault_monthly_new * Math.pow(1 + p.vault_user_growth_rate, m)
+      }
+      const partial_days = days_since_open - full_months * 30
+      if (partial_days > 0) {
+        external_users += p.vault_monthly_new * Math.pow(1 + p.vault_user_growth_rate, full_months) * (partial_days / 30)
+      }
+
+      vault_stakers = Math.round(convert_users + external_users)
+      vault_total_staked_usdc = vault_stakers * p.vault_avg_stake_usdc
+      vault_profit_today = vault_total_staked_usdc * vaultRate
+      platform_vault_income_today = vault_profit_today * p.platform_fee_ratio
+    }
+
+    // ================================================================
+    // STEP 1: Milestone payouts (with V-level performance check)
+    // ================================================================
+    let day_perf_penalty = 0
+    let day_perf_carry = 0
+    let current_pass_rate = 0
+
     let junior_payout_raw = 0, junior_payout_capped = 0, junior_unlocked = 0, junior_active = 0, junior_maxed = 0
     for (const c of juniorCohorts) {
       if (c.is_maxed) { junior_maxed += c.users; continue }
       junior_active += c.users
-      const age = day - c.start_day
-      for (const m of jMilestones) {
-        if (age !== m.target_days) continue
-        junior_unlocked += c.users
-        const stat = p.junior_package_usdc * p.junior_daily_rate * m.target_days
-        const bonus = m.has_bonus ? p.junior_package_usdc : 0
-        const total = stat + bonus
-        const cap = c.invest_usdc * p.max_out_multiple
-        const rem = Math.max(0, cap - c.earned_usdc)
-        const actual = Math.min(total, rem)
-        junior_payout_raw += total * c.users
-        junior_payout_capped += actual * c.users
-        c.earned_usdc += actual
-        if (c.earned_usdc >= cap) c.is_maxed = true
-      }
     }
 
     let senior_payout_raw = 0, senior_payout_capped = 0, senior_unlocked = 0, senior_active = 0, senior_maxed = 0
     for (const c of seniorCohorts) {
       if (c.is_maxed) { senior_maxed += c.users; continue }
       senior_active += c.users
+    }
+
+    const total_active_agents = junior_active + senior_active
+
+    for (const c of juniorCohorts) {
+      if (c.is_maxed) continue
       const age = day - c.start_day
-      for (const m of sMilestones) {
+      for (let mi = 0; mi < jMilestones.length; mi++) {
+        const m = jMilestones[mi]
+        if (age !== m.target_days) continue
+        junior_unlocked += c.users
+        const stat = p.junior_package_usdc * p.junior_daily_rate * m.target_days
+        const bonus = m.has_bonus ? p.junior_package_usdc : 0
+        const base = stat + bonus + c.carry_usdc
+
+        const pass_rate = computeVlevelPassRate(
+          m.required_vlevel, vault_total_staked_usdc,
+          total_active_agents, p.performance_discount_ratio,
+          p.vlevel_targets, p.milestone_performance_enabled,
+        )
+        current_pass_rate = pass_rate
+
+        const passed_payout = base * pass_rate
+        const failed_payout = base * (1 - pass_rate)
+        const penalty = failed_payout * 0.5
+        const carry = failed_payout * 0.5
+        day_perf_penalty += penalty * c.users
+        day_perf_carry += carry * c.users
+
+        const isLast = mi === jMilestones.length - 1
+        if (isLast) {
+          day_perf_penalty += carry * c.users
+          c.carry_usdc = 0
+        } else {
+          c.carry_usdc = carry
+        }
+
+        const actual_total = passed_payout
+        const cap = c.invest_usdc * p.max_out_multiple
+        const rem = Math.max(0, cap - c.earned_usdc)
+        const actual = Math.min(actual_total, rem)
+        junior_payout_raw += base * c.users
+        junior_payout_capped += actual * c.users
+        c.earned_usdc += actual
+        if (c.earned_usdc >= cap) c.is_maxed = true
+      }
+    }
+
+    for (const c of seniorCohorts) {
+      if (c.is_maxed) continue
+      const age = day - c.start_day
+      for (let mi = 0; mi < sMilestones.length; mi++) {
+        const m = sMilestones[mi]
         if (age !== m.target_days) continue
         senior_unlocked += c.users
         const stat = p.senior_package_usdc * p.senior_daily_rate * m.target_days
         const bonus = m.has_bonus ? p.senior_package_usdc : 0
-        const total = stat + bonus
+        const base = stat + bonus + c.carry_usdc
+
+        const pass_rate = computeVlevelPassRate(
+          m.required_vlevel, vault_total_staked_usdc,
+          total_active_agents, p.performance_discount_ratio,
+          p.vlevel_targets, p.milestone_performance_enabled,
+        )
+        current_pass_rate = pass_rate
+
+        const passed_payout = base * pass_rate
+        const failed_payout = base * (1 - pass_rate)
+        const penalty = failed_payout * 0.5
+        const carry = failed_payout * 0.5
+        day_perf_penalty += penalty * c.users
+        day_perf_carry += carry * c.users
+
+        const isLast = mi === sMilestones.length - 1
+        if (isLast) {
+          day_perf_penalty += carry * c.users
+          c.carry_usdc = 0
+        } else {
+          c.carry_usdc = carry
+        }
+
+        const actual_total = passed_payout
         const cap = c.invest_usdc * p.max_out_multiple
         const rem = Math.max(0, cap - c.earned_usdc)
-        const actual = Math.min(total, rem)
-        senior_payout_raw += total * c.users
+        const actual = Math.min(actual_total, rem)
+        senior_payout_raw += base * c.users
         senior_payout_capped += actual * c.users
         c.earned_usdc += actual
         if (c.earned_usdc >= cap) c.is_maxed = true
@@ -323,48 +449,6 @@ export function simulate(p: ModelParams): DailyRow[] {
     // Compute treasury inflow first (needed for budget)
     const inflow_node = junior_new * p.junior_invest_usdc + senior_new * p.senior_invest_usdc
     const external_profit_daily = (p.external_profit_monthly / 30) * Math.pow(1 + p.external_profit_growth_rate, month_idx - 1)
-
-    // ---- Vault phase check ----
-    if (!vault_opened) {
-      const cond1 = p.vault_open_day > 0 && day >= p.vault_open_day
-      const cond2 = p.vault_open_on_node_full && junior_cum >= p.junior_max_nodes && senior_cum >= p.senior_max_nodes
-      if (cond1 || cond2) {
-        vault_opened = true
-        vault_open_day_actual = day
-      }
-    }
-
-    // ---- Vault stakers & principal ----
-    let vault_stakers = 0
-    let vault_total_staked_usdc = 0
-    let vault_profit_today = 0
-    let platform_vault_income_today = 0
-
-    if (vault_opened) {
-      const days_since_open = day - vault_open_day_actual
-      const months_since_open = days_since_open / 30
-
-      // Converted users from existing nodes
-      const convert_users = (junior_cum + senior_cum) * p.vault_convert_ratio
-
-      // External new users (cumulative): sum of monthly cohorts with growth
-      let external_users = 0
-      const full_months = Math.floor(months_since_open)
-      for (let m = 0; m < full_months; m++) {
-        external_users += p.vault_monthly_new * Math.pow(1 + p.vault_user_growth_rate, m)
-      }
-      // Partial current month
-      const partial_days = days_since_open - full_months * 30
-      if (partial_days > 0) {
-        external_users += p.vault_monthly_new * Math.pow(1 + p.vault_user_growth_rate, full_months) * (partial_days / 30)
-      }
-
-      vault_stakers = Math.round(convert_users + external_users)
-      vault_total_staked_usdc = vault_stakers * p.vault_avg_stake_usdc
-      vault_profit_today = vault_total_staked_usdc * vaultRate
-      platform_vault_income_today = vault_profit_today * p.platform_fee_ratio
-    }
-
     const treasury_inflow_raw = inflow_node + external_profit_daily + platform_vault_income_today
 
     if (p.treasury_defense_enabled && p.treasury_buyback_ratio > 0) {
@@ -476,6 +560,9 @@ export function simulate(p: ModelParams): DailyRow[] {
       vault_new_stake_today_usdc: vault_total_staked_usdc - (rows.length > 0 ? rows[rows.length - 1].vault_total_staked_usdc : 0),
       referral_payout_today,
       total_referral_payout: cum_referral_payout,
+      perf_pass_rate: current_pass_rate,
+      perf_penalty_usdc: day_perf_penalty,
+      perf_carry_usdc: day_perf_carry,
     })
   }
 

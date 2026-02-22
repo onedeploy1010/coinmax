@@ -91,6 +91,10 @@ export function computeStageReport(
     let totalPrincipal = 0
     let totalVaultPlatformIncome = 0
     let totalReferralPayout = 0
+    let totalPerfPenalty = 0
+    let totalPerfCarry = 0
+    let avgPassRate = 0
+    let passRateCount = 0
 
     for (const s of slice) {
       if (s.price_end > peak) peak = s.price_end
@@ -101,6 +105,12 @@ export function computeStageReport(
       totalPrincipal += s.junior_new * config.junior_invest_usdc + s.senior_new * config.senior_invest_usdc
       totalVaultPlatformIncome += s.platform_vault_income_today
       totalReferralPayout += s.referral_payout_today
+      totalPerfPenalty += s.perf_penalty_usdc
+      totalPerfCarry += s.perf_carry_usdc
+      if (s.perf_pass_rate > 0) {
+        avgPassRate += s.perf_pass_rate
+        passRateCount++
+      }
     }
 
     const minPrice = Math.min(...slice.map((s) => s.price_end))
@@ -167,6 +177,11 @@ export function computeStageReport(
       }
     } else {
       recs.push("金库尚未开启，节点招募中。")
+    }
+
+    const perfAvgPassRate = passRateCount > 0 ? avgPassRate / passRateCount : 0
+    if (perfAvgPassRate > 0 && perfAvgPassRate < 0.5) {
+      recs.push("V级业绩达标率偏低，建议降低V级门槛或增加金库推广力度。")
     }
 
     if (recs.length === 0) {
@@ -241,6 +256,11 @@ export function computeStageReport(
       // Market cost
       avg_invest_per_node: avgInvestPerNode,
       referral_cost_ratio: referralCostRatio,
+
+      // V级业绩
+      perf_avg_pass_rate: perfAvgPassRate,
+      perf_total_penalty_usdc: totalPerfPenalty,
+      perf_total_carry_usdc: totalPerfCarry,
     })
   }
 

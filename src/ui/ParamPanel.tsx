@@ -1,5 +1,5 @@
 import React, { useState } from "react"
-import type { ModelParams } from "../config/types"
+import type { ModelParams, VlevelTarget } from "../config/types"
 import { defaultConfig } from "../config/defaultConfig"
 import { loadScenarios, saveScenario, deleteScenario } from "../utils/scenario"
 
@@ -183,6 +183,14 @@ const TAB_GROUPS: Record<ParamTab, ParamGroup[]> = {
         { key: "node_payout_mode", label: "节点支付模式", type: "select", options: [{ value: 1, label: "模式 1" }, { value: 2, label: "模式 2" }] },
       ],
     },
+    {
+      label: "V级业绩条件",
+      fields: [
+        { key: "milestone_performance_enabled", label: "启用业绩解锁", type: "boolean" },
+        { key: "performance_discount_ratio", label: "小区业绩折扣", type: "number", step: 0.01 },
+        { key: "vlevel_targets", label: "V级目标配置", type: "record" },
+      ],
+    },
   ],
   targets: [
     {
@@ -291,6 +299,47 @@ const RecordEditor: React.FC<{
   )
 }
 
+// ---- VlevelTargetEditor: V1-V7 config table ----
+
+const VlevelTargetEditor: React.FC<{
+  value: Record<number, VlevelTarget>
+  onChange: (v: Record<number, VlevelTarget>) => void
+}> = ({ value, onChange }) => {
+  const entries = Object.entries(value)
+    .map(([k, v]) => [Number(k), v] as [number, VlevelTarget])
+    .sort((a, b) => a[0] - b[0])
+
+  const update = (level: number, field: keyof VlevelTarget, val: number) => {
+    const next = { ...value, [level]: { ...value[level], [field]: val } }
+    onChange(next)
+  }
+
+  return (
+    <div className="record-editor">
+      <div className="record-editor-header">
+        <span className="record-editor-title">V级目标配置</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "50px 1fr 1fr 1fr", gap: 4, fontSize: 12, color: "#888", padding: "4px 0" }}>
+        <span>等级</span>
+        <span>小区业绩</span>
+        <span>个人投资</span>
+        <span>团队分成</span>
+      </div>
+      {entries.map(([level, t]) => (
+        <div key={level} style={{ display: "grid", gridTemplateColumns: "50px 1fr 1fr 1fr", gap: 4, marginBottom: 2 }}>
+          <span style={{ lineHeight: "28px", fontSize: 13, color: "#ccc" }}>V{level}</span>
+          <input type="number" style={{ width: "100%" }} value={t.community_performance}
+            onChange={(e) => update(level, "community_performance", parseFloat(e.target.value) || 0)} />
+          <input type="number" style={{ width: "100%" }} value={t.personal_invest}
+            onChange={(e) => update(level, "personal_invest", parseFloat(e.target.value) || 0)} />
+          <input type="number" step={0.01} style={{ width: "100%" }} value={t.team_share}
+            onChange={(e) => update(level, "team_share", parseFloat(e.target.value) || 0)} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ---- Record field configs for the "rates" tab ----
 const RECORD_CONFIGS: Record<string, { keyLabel: string; valueLabel: string; valueStep: number }> = {
   vault_rates: { keyLabel: "锁仓天数", valueLabel: "日费率", valueStep: 0.001 },
@@ -356,6 +405,15 @@ export const ParamPanel: React.FC<Props> = ({ config, onChange, onRun, isMobile 
       )
     }
     if (f.type === "record") {
+      if (f.key === "vlevel_targets") {
+        return (
+          <VlevelTargetEditor
+            key={f.key}
+            value={(val as Record<number, VlevelTarget>) ?? {}}
+            onChange={(v) => set(f.key, v)}
+          />
+        )
+      }
       const rc = RECORD_CONFIGS[f.key]
       if (rc) {
         return (
