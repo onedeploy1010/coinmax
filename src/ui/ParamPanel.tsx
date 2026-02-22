@@ -136,10 +136,10 @@ const TAB_GROUPS: Record<ParamTab, ParamGroup[]> = {
       ],
     },
     {
-      label: "MX 销毁计划",
+      label: "MX 线性释放 & 提前释放",
       fields: [
-        { key: "burn_schedule", label: "持有天数 → 销毁比例", type: "record" },
         { key: "linear_release_days", label: "线性释放天数", type: "number" },
+        { key: "burn_schedule", label: "提前释放 → 需销毁MX比例", type: "record" },
       ],
     },
   ],
@@ -343,7 +343,7 @@ const VlevelTargetEditor: React.FC<{
 // ---- Record field configs for the "rates" tab ----
 const RECORD_CONFIGS: Record<string, { keyLabel: string; valueLabel: string; valueStep: number }> = {
   vault_rates: { keyLabel: "锁仓天数", valueLabel: "日费率", valueStep: 0.001 },
-  burn_schedule: { keyLabel: "持有天数", valueLabel: "销毁比例", valueStep: 0.01 },
+  burn_schedule: { keyLabel: "剩余释放天数", valueLabel: "需销毁MX比例", valueStep: 0.01 },
 }
 
 export const ParamPanel: React.FC<Props> = ({ config, onChange, onRun, isMobile }) => {
