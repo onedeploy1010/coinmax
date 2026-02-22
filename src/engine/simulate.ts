@@ -262,69 +262,71 @@ export function simulate(p: ModelParams): DailyRow[] {
       senior_active += c.users
     }
 
-    for (const c of juniorCohorts) {
-      if (c.is_maxed) continue
-      const age = day - c.start_day
-      for (let mi = 0; mi < jMilestones.length; mi++) {
-        const m = jMilestones[mi]
-        if (age !== m.target_days) continue
-        junior_unlocked += c.users
-        const stat = p.junior_package_usdc * p.junior_daily_rate * m.target_days
-        const bonus = m.has_bonus ? p.junior_package_usdc : 0
-        const base = stat + bonus + c.carry_usdc
+    // 金库开启后才开始计息，age 从金库开启日或节点加入日（取较晚者）起算
+    if (vault_opened) {
+      for (const c of juniorCohorts) {
+        if (c.is_maxed) continue
+        const age = day - Math.max(c.start_day, vault_open_day_actual)
+        for (let mi = 0; mi < jMilestones.length; mi++) {
+          const m = jMilestones[mi]
+          if (age !== m.target_days) continue
+          junior_unlocked += c.users
+          const stat = p.junior_package_usdc * p.junior_daily_rate * m.target_days
+          const bonus = m.has_bonus ? p.junior_package_usdc : 0
+          const base = stat + bonus + c.carry_usdc
 
-        const pass_rate = computeVlevelPassRate(
-          m.required_vlevel, vault_total_staked_usdc,
-          p.performance_discount_ratio,
-          p.vlevel_targets, p.milestone_performance_enabled,
-          vault_opened,
-        )
-        current_pass_rate = pass_rate
+          const pass_rate = computeVlevelPassRate(
+            m.required_vlevel, vault_total_staked_usdc,
+            p.performance_discount_ratio,
+            p.vlevel_targets, p.milestone_performance_enabled,
+            vault_opened,
+          )
+          current_pass_rate = pass_rate
 
-        const passed_payout = base * pass_rate
-        const failed_payout = base * (1 - pass_rate)
-        const penalty = failed_payout * 0.5
-        const carry = failed_payout * 0.5
-        day_perf_penalty += penalty * c.users
-        day_perf_carry += carry * c.users
+          const passed_payout = base * pass_rate
+          const failed_payout = base * (1 - pass_rate)
+          const penalty = failed_payout * 0.5
+          const carry = failed_payout * 0.5
+          day_perf_penalty += penalty * c.users
+          day_perf_carry += carry * c.users
 
-        const isLast = mi === jMilestones.length - 1
-        if (isLast) {
-          day_perf_penalty += carry * c.users
-          c.carry_usdc = 0
-        } else {
-          c.carry_usdc = carry
+          const isLast = mi === jMilestones.length - 1
+          if (isLast) {
+            day_perf_penalty += carry * c.users
+            c.carry_usdc = 0
+          } else {
+            c.carry_usdc = carry
+          }
+
+          const actual_total = passed_payout
+          const cap = c.invest_usdc * p.max_out_multiple
+          const rem = Math.max(0, cap - c.earned_usdc)
+          const actual = Math.min(actual_total, rem)
+          junior_payout_raw += base * c.users
+          junior_payout_capped += actual * c.users
+          c.earned_usdc += actual
+          if (c.earned_usdc >= cap) c.is_maxed = true
         }
-
-        const actual_total = passed_payout
-        const cap = c.invest_usdc * p.max_out_multiple
-        const rem = Math.max(0, cap - c.earned_usdc)
-        const actual = Math.min(actual_total, rem)
-        junior_payout_raw += base * c.users
-        junior_payout_capped += actual * c.users
-        c.earned_usdc += actual
-        if (c.earned_usdc >= cap) c.is_maxed = true
       }
-    }
 
-    for (const c of seniorCohorts) {
-      if (c.is_maxed) continue
-      const age = day - c.start_day
-      for (let mi = 0; mi < sMilestones.length; mi++) {
-        const m = sMilestones[mi]
-        if (age !== m.target_days) continue
-        senior_unlocked += c.users
-        const stat = p.senior_package_usdc * p.senior_daily_rate * m.target_days
-        const bonus = m.has_bonus ? p.senior_package_usdc : 0
-        const base = stat + bonus + c.carry_usdc
+      for (const c of seniorCohorts) {
+        if (c.is_maxed) continue
+        const age = day - Math.max(c.start_day, vault_open_day_actual)
+        for (let mi = 0; mi < sMilestones.length; mi++) {
+          const m = sMilestones[mi]
+          if (age !== m.target_days) continue
+          senior_unlocked += c.users
+          const stat = p.senior_package_usdc * p.senior_daily_rate * m.target_days
+          const bonus = m.has_bonus ? p.senior_package_usdc : 0
+          const base = stat + bonus + c.carry_usdc
 
-        const pass_rate = computeVlevelPassRate(
-          m.required_vlevel, vault_total_staked_usdc,
-          p.performance_discount_ratio,
-          p.vlevel_targets, p.milestone_performance_enabled,
-          vault_opened,
-        )
-        current_pass_rate = pass_rate
+          const pass_rate = computeVlevelPassRate(
+            m.required_vlevel, vault_total_staked_usdc,
+            p.performance_discount_ratio,
+            p.vlevel_targets, p.milestone_performance_enabled,
+            vault_opened,
+          )
+          current_pass_rate = pass_rate
 
         const passed_payout = base * pass_rate
         const failed_payout = base * (1 - pass_rate)
@@ -351,6 +353,7 @@ export function simulate(p: ModelParams): DailyRow[] {
         if (c.earned_usdc >= cap) c.is_maxed = true
       }
     }
+    } // end if (vault_opened)
 
     const node_payout_usdc_today = junior_payout_raw + senior_payout_raw
     const node_payout_usdc_capped = junior_payout_capped + senior_payout_capped
