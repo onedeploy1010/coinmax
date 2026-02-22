@@ -4,17 +4,16 @@ import { blendRateMap, blendKeyMap } from "./blendRates"
 function computeVlevelPassRate(
   vlevel: number,
   vault_total_staked_usdc: number,
-  total_active_agents: number,
   discount: number,
   targets: Record<number, VlevelTarget>,
   enabled: boolean,
 ): number {
   if (!enabled) return 1.0
-  const avg_perf = vault_total_staked_usdc * discount / Math.max(total_active_agents, 1)
+  const community_perf = vault_total_staked_usdc * discount
   const target = targets[vlevel]
   if (!target) return 1.0
   const required = target.community_performance
-  return Math.max(0, Math.min(1, avg_perf / required))
+  return Math.max(0, Math.min(1, community_perf / required))
 }
 
 export interface DailyRow {
@@ -262,8 +261,6 @@ export function simulate(p: ModelParams): DailyRow[] {
       senior_active += c.users
     }
 
-    const total_active_agents = junior_active + senior_active
-
     for (const c of juniorCohorts) {
       if (c.is_maxed) continue
       const age = day - c.start_day
@@ -277,7 +274,7 @@ export function simulate(p: ModelParams): DailyRow[] {
 
         const pass_rate = computeVlevelPassRate(
           m.required_vlevel, vault_total_staked_usdc,
-          total_active_agents, p.performance_discount_ratio,
+          p.performance_discount_ratio,
           p.vlevel_targets, p.milestone_performance_enabled,
         )
         current_pass_rate = pass_rate
@@ -321,7 +318,7 @@ export function simulate(p: ModelParams): DailyRow[] {
 
         const pass_rate = computeVlevelPassRate(
           m.required_vlevel, vault_total_staked_usdc,
-          total_active_agents, p.performance_discount_ratio,
+          p.performance_discount_ratio,
           p.vlevel_targets, p.milestone_performance_enabled,
         )
         current_pass_rate = pass_rate
