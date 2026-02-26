@@ -10,13 +10,15 @@ import { TableTab } from "./ui/TableTab"
 import { StageReportTab } from "./ui/StageReportTab"
 import { OptimizerTab } from "./ui/OptimizerTab"
 import { StressTestTab } from "./ui/StressTestTab"
+import { ReportTab } from "./ui/Report"
 import { useIsMobile } from "./hooks/use-mobile"
 
-type TabKey = "dashboard" | "overview" | "charts" | "table" | "stage" | "optimizer" | "stress"
+type TabKey = "dashboard" | "overview" | "charts" | "table" | "stage" | "optimizer" | "stress" | "report"
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "dashboard", label: "仪表盘" },
   { key: "stage", label: "阶段报告" },
+  { key: "report", label: "总结报告" },
   { key: "overview", label: "概览" },
   { key: "charts", label: "图表" },
   { key: "table", label: "数据表" },
@@ -74,6 +76,8 @@ export default function App() {
         return <OptimizerTab config={config} onApply={handleApplyOptimizer} isMobile={isMobile} />
       case "stress":
         return <StressTestTab config={config} isMobile={isMobile} />
+      case "report":
+        return <ReportTab rows={rows} config={config} />
     }
   }
 
