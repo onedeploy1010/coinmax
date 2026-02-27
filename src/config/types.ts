@@ -83,11 +83,9 @@ export interface ModelParams {
   vault_user_growth_rate: number   // 外部质押用户月增长率
   vault_avg_stake_usdc: number     // 平均每人质押 USDC
 
-  // ---- MX Burn Gate (Section A) ----
-  mx_price_usdc: number
+  // ---- 提前释放回购 & 销毁 (Section A) ----
   mx_burn_per_withdraw_ratio: number
   mx_burn_mode: "usdc_value" | "mx_amount"
-  mx_amm_enabled: boolean
   mx_burn_from: "user" | "treasury"
 
   // ---- Treasury Defense Toolkit (Section B) ----

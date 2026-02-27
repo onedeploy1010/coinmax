@@ -97,12 +97,10 @@ const TAB_GROUPS: Record<ParamTab, ParamGroup[]> = {
   ],
   defense: [
     {
-      label: "MX 销毁闸门",
+      label: "提前释放回购 & 销毁",
       fields: [
-        { key: "mx_price_usdc", label: "MX 价格 (USDC)", type: "number", step: 0.01 },
-        { key: "mx_burn_per_withdraw_ratio", label: "提现销毁比例", type: "number", step: 0.01 },
+        { key: "mx_burn_per_withdraw_ratio", label: "提前释放回购比例", type: "number", step: 0.01 },
         { key: "mx_burn_mode", label: "计算模式", type: "select", options: [{ value: "usdc_value", label: "USDC 价值" }, { value: "ar_amount", label: "MX 数量" }] },
-        { key: "mx_amm_enabled", label: "MX AMM (预留)", type: "boolean" },
         { key: "mx_burn_from", label: "销毁来源", type: "select", options: [{ value: "user", label: "用户承担" }, { value: "treasury", label: "国库承担" }] },
       ],
     },
@@ -111,7 +109,7 @@ const TAB_GROUPS: Record<ParamTab, ParamGroup[]> = {
       fields: [
         { key: "treasury_defense_enabled", label: "启用防御", type: "boolean" },
         { key: "treasury_buyback_ratio", label: "回购比例(日流入)", type: "number", step: 0.01 },
-        { key: "treasury_redemption_ratio", label: "兑付比例", type: "number", step: 0.01 },
+        { key: "treasury_redemption_ratio", label: "金库兑付比例（核心）", type: "number", step: 0.01 },
         { key: "treasury_buyback_trigger.drawdown_threshold", label: "回撤触发阈值", type: "number", step: 0.01 },
         { key: "treasury_buyback_trigger.sold_over_lp_threshold", label: "卖压/LP触发", type: "number", step: 0.01 },
         { key: "treasury_buyback_trigger.lp_usdc_min_threshold", label: "LP最低触发", type: "number" },

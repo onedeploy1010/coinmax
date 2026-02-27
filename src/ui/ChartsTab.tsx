@@ -6,9 +6,10 @@ interface Props { rows: DailyRow[] }
 interface ChartDef { title: string; type?: "line" | "area"; dataKeys: { key: keyof DailyRow; color: string; name: string }[] }
 
 const CHARTS: ChartDef[] = [
-  { title: "代币价格 (卖后/买后/最终)", dataKeys: [
+  { title: "代币价格 (回购后/卖后/买后/最终)", dataKeys: [
+    { key: "price_after_early_buyback", color: "#f59e0b", name: "提前释放回购后" },
     { key: "price_after_sell", color: "#ef4444", name: "卖后价格" },
-    { key: "price_after_buyback", color: "#22c55e", name: "买后价格" },
+    { key: "price_after_buyback", color: "#22c55e", name: "国库回购后" },
     { key: "price_end", color: "#6366f1", name: "最终价格" },
   ]},
   { title: "卖压 / LP 比", dataKeys: [{ key: "sold_over_lp", color: "#f43f5e", name: "卖压比" }] },
@@ -22,8 +23,8 @@ const CHARTS: ChartDef[] = [
     { key: "mx_buyback_out", color: "#10b981", name: "回购MX" },
     { key: "redemption_mx", color: "#8b5cf6", name: "兑付MX" },
   ]},
-  { title: "MX 销毁闸门", dataKeys: [
-    { key: "mx_buy_usdc", color: "#f97316", name: "MX购买USDC" },
+  { title: "提前释放回购 & 销毁", dataKeys: [
+    { key: "mx_buy_usdc", color: "#f97316", name: "回购USDC" },
     { key: "mx_burn_amount", color: "#ef4444", name: "MX销毁量" },
   ]},
   { title: "净卖压 MX (卖出 - 回购)", dataKeys: [
@@ -67,7 +68,7 @@ export const ChartsTab: React.FC<Props> = ({ rows }) => {
                 <CartesianGrid strokeDasharray="3 3" stroke="#333" />
                 <XAxis dataKey="day" stroke="#888" fontSize={12} />
                 <YAxis stroke="#888" fontSize={12} tickFormatter={fmtTick} />
-                <Tooltip contentStyle={{ background: "#1e1e2e", border: "1px solid #444", borderRadius: 8 }} labelStyle={{ color: "#ccc" }} formatter={(v: number) => v.toFixed(4)} />
+                <Tooltip contentStyle={{ background: "#1e1e2e", border: "1px solid #444", borderRadius: 8 }} labelStyle={{ color: "#ccc" }} formatter={(v: number | undefined) => (v ?? 0).toFixed(4)} />
                 <Legend />
                 {chart.dataKeys.map((dk) => <Area key={dk.key} type="monotone" dataKey={dk.key} stroke={dk.color} fill={dk.color} fillOpacity={0.15} name={dk.name} dot={false} strokeWidth={2} />)}
               </AreaChart>
@@ -76,7 +77,7 @@ export const ChartsTab: React.FC<Props> = ({ rows }) => {
                 <CartesianGrid strokeDasharray="3 3" stroke="#333" />
                 <XAxis dataKey="day" stroke="#888" fontSize={12} />
                 <YAxis stroke="#888" fontSize={12} tickFormatter={fmtTick} />
-                <Tooltip contentStyle={{ background: "#1e1e2e", border: "1px solid #444", borderRadius: 8 }} labelStyle={{ color: "#ccc" }} formatter={(v: number) => v.toFixed(4)} />
+                <Tooltip contentStyle={{ background: "#1e1e2e", border: "1px solid #444", borderRadius: 8 }} labelStyle={{ color: "#ccc" }} formatter={(v: number | undefined) => (v ?? 0).toFixed(4)} />
                 <Legend />
                 {chart.dataKeys.map((dk) => <Line key={dk.key} type="monotone" dataKey={dk.key} stroke={dk.color} name={dk.name} dot={false} strokeWidth={2} />)}
               </LineChart>

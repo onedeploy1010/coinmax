@@ -35,9 +35,10 @@ export interface DailyRow {
   node_payout_usdc_today: number
   node_payout_usdc_capped: number
   payout_mx_today: number
-  // MX Burn Gate
+  // 提前释放回购 & 销毁
   mx_buy_usdc: number
   mx_burn_amount: number
+  price_after_early_buyback: number
   // Treasury redemption (MX)
   redemption_mx: number
   // Burn + release
@@ -387,10 +388,11 @@ export function simulate(p: ModelParams): DailyRow[] {
     const released_mx_today = instant_release_mx + linear_release_mx
 
     // ================================================================
-    // STEP 3: MX Burn Gate — BEFORE selling MX
+    // STEP 3: 提前释放回购 — USDC 进入 LP 池 → MX 出池销毁（支撑价格）
     // ================================================================
     let mx_buy_usdc = 0
     let mx_burn_amount = 0
+    let price_after_early_buyback = current_price
 
     if (p.mx_burn_per_withdraw_ratio > 0 && released_mx_today > 0) {
       let withdraw_value_usdc: number
@@ -400,9 +402,22 @@ export function simulate(p: ModelParams): DailyRow[] {
         withdraw_value_usdc = payout_mx_today * current_price
       }
       mx_buy_usdc = withdraw_value_usdc * p.mx_burn_per_withdraw_ratio
-      mx_burn_amount = p.mx_price_usdc > 0 ? mx_buy_usdc / p.mx_price_usdc : 0
+
+      // CPMM swap: USDC 进入 LP 池，MX 出池销毁
+      if (mx_buy_usdc > 0 && lp_usdc_current > 0 && lp_token_current > 0) {
+        const k = lp_usdc_current * lp_token_current
+        const usdc_eff = mx_buy_usdc * (1 - p.amm_fee_rate)
+        const new_lp_usdc = lp_usdc_current + usdc_eff
+        const new_lp_token = k / new_lp_usdc
+        mx_burn_amount = lp_token_current - new_lp_token
+        lp_usdc_current = new_lp_usdc
+        lp_token_current = new_lp_token
+      }
+
       cum_mx_burned += mx_burn_amount
     }
+
+    price_after_early_buyback = lp_token_current > 0 ? lp_usdc_current / lp_token_current : current_price
 
     // ================================================================
     // STEP 4: Treasury redemption (兑付) — 直接扣减释放的 MX，不消耗国库 USDC
@@ -410,7 +425,7 @@ export function simulate(p: ModelParams): DailyRow[] {
     let redemption_mx = 0
     let released_mx_after_redemption = released_mx_today
 
-    if (p.treasury_defense_enabled && p.treasury_redemption_ratio > 0 && released_mx_today > 0) {
+    if (p.treasury_redemption_ratio > 0 && released_mx_today > 0) {
       redemption_mx = released_mx_today * p.treasury_redemption_ratio
       released_mx_after_redemption = released_mx_today - redemption_mx
       cum_mx_redemptions += redemption_mx
@@ -538,7 +553,7 @@ export function simulate(p: ModelParams): DailyRow[] {
       junior_daily_income_usdc: p.junior_package_usdc * p.junior_daily_rate,
       senior_daily_income_usdc: p.senior_package_usdc * p.senior_daily_rate,
       node_payout_usdc_today, node_payout_usdc_capped, payout_mx_today,
-      mx_buy_usdc, mx_burn_amount,
+      mx_buy_usdc, mx_burn_amount, price_after_early_buyback,
       redemption_mx,
       burn_rate, instant_release_ratio,
       instant_release_mx, linear_release_mx,

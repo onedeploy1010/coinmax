@@ -67,17 +67,15 @@ export const defaultConfig: ModelParams = {
   vault_user_growth_rate: 0.10,
   vault_avg_stake_usdc: 500,
 
-  // MX Burn Gate
-  mx_price_usdc: 1,
+  // 提前释放回购 & 销毁
   mx_burn_per_withdraw_ratio: 0.10,
   mx_burn_mode: "usdc_value",
-  mx_amm_enabled: false,
   mx_burn_from: "user",
 
   // Treasury Defense
   treasury_defense_enabled: true,
   treasury_buyback_ratio: 0.10,
-  treasury_redemption_ratio: 0,
+  treasury_redemption_ratio: 0.8,
   treasury_buyback_trigger: {
     drawdown_threshold: -0.30,
     sold_over_lp_threshold: 0.20,

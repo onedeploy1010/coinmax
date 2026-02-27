@@ -93,8 +93,8 @@ export const ReportTab: React.FC<Props> = ({ rows, config }) => {
     if (dd > maxDrawdown) maxDrawdown = dd
   }
 
-  // Has treasury redemption?
-  const hasRedemption = config.treasury_defense_enabled && config.treasury_redemption_ratio > 0
+  // Has treasury redemption? (核心机制，不再受 treasury_defense_enabled 门控)
+  const hasRedemption = config.treasury_redemption_ratio > 0
   // Has buyback?
   const hasBuyback = config.treasury_defense_enabled && config.treasury_buyback_ratio > 0
   // Has MX burn gate?
@@ -207,7 +207,7 @@ export const ReportTab: React.FC<Props> = ({ rows, config }) => {
               <tr><td style={miniTdLabel}>线性释放天数</td><td style={miniTdValue}>{config.linear_release_days} 天</td></tr>
               <tr><td style={miniTdLabel}>即时释放比例</td><td style={miniTdValue}>{pct(first.instant_release_ratio)}</td></tr>
               <tr><td style={miniTdLabel}>延迟释放比例</td><td style={miniTdValue}>{pct(first.burn_rate)}</td></tr>
-              <tr><td style={miniTdLabel}>提现销毁比例</td><td style={miniTdValue}>{pct(config.mx_burn_per_withdraw_ratio)}</td></tr>
+              <tr><td style={miniTdLabel}>提前释放回购比例</td><td style={miniTdValue}>{pct(config.mx_burn_per_withdraw_ratio)}</td></tr>
               <tr><td style={miniTdLabel}>销毁来源</td><td style={miniTdValue}>{config.mx_burn_from === "user" ? "用户" : "国库"}</td></tr>
             </tbody></table>
           </div>
@@ -216,7 +216,7 @@ export const ReportTab: React.FC<Props> = ({ rows, config }) => {
             <table style={{ width: "100%", borderCollapse: "collapse" }}><tbody>
               <tr><td style={miniTdLabel}>初始国库</td><td style={miniTdValue}>{usd(config.treasury_start_usdc)}</td></tr>
               <tr><td style={miniTdLabel}>国库防御</td><td style={miniTdValue}>{config.treasury_defense_enabled ? "已启用" : "未启用"}</td></tr>
-              {hasRedemption && <tr><td style={miniTdLabel}>兑付比例</td><td style={miniTdValue}>{pct(config.treasury_redemption_ratio)}</td></tr>}
+              {hasRedemption && <tr><td style={miniTdLabel}>金库兑付比例（核心）</td><td style={miniTdValue}>{pct(config.treasury_redemption_ratio)}</td></tr>}
               {hasBuyback && <tr><td style={miniTdLabel}>回购比例</td><td style={miniTdValue}>{pct(config.treasury_buyback_ratio)}</td></tr>}
               <tr><td style={miniTdLabel}>外部月收入</td><td style={miniTdValue}>{usd(config.external_profit_monthly)}</td></tr>
             </tbody></table>
@@ -249,9 +249,9 @@ export const ReportTab: React.FC<Props> = ({ rows, config }) => {
           <div style={arrowStyle}>→</div>
           {hasBurnGate && (<>
             <div style={{ ...flowBoxStyle, background: "rgba(239,68,68,0.12)", color: "var(--danger)" }}>
-              MX销毁闸门<br/>
+              提前释放→LP回购<br/>
               <span style={{ fontSize: "0.75rem", fontWeight: 400 }}>
-                提现需销毁 {pct(config.mx_burn_per_withdraw_ratio)}
+                {pct(config.mx_burn_per_withdraw_ratio)} USDC→LP池→MX销毁
               </span>
             </div>
             <div style={arrowStyle}>→</div>
@@ -287,15 +287,14 @@ export const ReportTab: React.FC<Props> = ({ rows, config }) => {
         {/* Key explanation */}
         <div style={{ ...infoCard, marginTop: 12, padding: "14px 18px", lineHeight: 1.8, fontSize: "0.85rem", color: "var(--text-secondary)" }}>
           <p style={{ margin: "0 0 8px 0" }}>
-            <strong style={{ color: "var(--text-primary)" }}>线性释放</strong>：
-            用户选择释放时间后，利息MX按 <strong>{config.linear_release_days} 天</strong> 线性解锁。
-            若用户希望提前取得MX，需按「提前释放销毁比例」购买并销毁相应MX作为成本，
-            从而缩短等待时间。
+            <strong style={{ color: "var(--text-primary)" }}>提前释放回购</strong>：
+            用户缩短线性释放时间时，利润自动通过LP池进行CPMM回购（USDC进池、MX出池销毁），
+            此操作<strong>支撑MX价格</strong>。回购比例为 <strong>{pct(config.mx_burn_per_withdraw_ratio)}</strong>。
           </p>
           <p style={{ margin: "0 0 8px 0" }}>
             <strong style={{ color: "var(--text-primary)" }}>金库兑付</strong>：
             {hasRedemption
-              ? `当前设定 ${pct(config.treasury_redemption_ratio)} 的释放MX由金库直接兑付（不进入LP池交易），有效减少市场卖压。`
+              ? `当前设定 ${pct(config.treasury_redemption_ratio)} 的释放MX由金库直接兑付（不走LP池，不影响价格），有效减少市场卖压。`
               : "当前未启用金库兑付。所有释放MX经卖压比例后进入LP池交易。"
             }
           </p>
@@ -345,7 +344,7 @@ export const ReportTab: React.FC<Props> = ({ rows, config }) => {
               <div>延迟释放中：<strong>{num(totalMxDeferred, 2)}</strong></div>
               <div>实际卖出：<strong style={{ color: "var(--danger)" }}>{num(totalMxSold, 2)}</strong></div>
               {totalMxBuyback > 0 && <div>国库回购：<strong style={{ color: "var(--success)" }}>{num(totalMxBuyback, 2)}</strong></div>}
-              {totalMxBurned > 0 && <div>销毁(闸门)：<strong style={{ color: "var(--warning)" }}>{num(totalMxBurned, 2)}</strong></div>}
+              {totalMxBurned > 0 && <div>提前释放回购销毁：<strong style={{ color: "var(--warning)" }}>{num(totalMxBurned, 2)}</strong></div>}
             </div>
           </div>
           <div style={resultCard}>
@@ -460,8 +459,8 @@ export const ReportTab: React.FC<Props> = ({ rows, config }) => {
             <div style={{ fontSize: "0.88rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
               价格变动 <strong>{priceChange >= 0 ? "+" : ""}{pct(priceChange)}</strong>，最大回撤 <strong>{pct(maxDrawdown)}</strong>。
               {hasRedemption
-                ? ` 由于金库兑付了 ${pct(actualRedemptionRatio)} 的MX，实际流入LP池的卖压有限（卖出/LP最高 ${pct(maxSoldOverLp, 4)}）。`
-                : ` 释放的MX经卖压比例 ${pct(config.sell_pressure_ratio)} 后进入LP池交易，直接影响价格。`
+                ? ` 金库兑付了 ${pct(actualRedemptionRatio)} 的MX（不走LP池），提前释放回购通过CPMM支撑价格，实际流入LP池的卖压有限（卖出/LP最高 ${pct(maxSoldOverLp, 4)}）。`
+                : ` 释放的MX经卖压比例 ${pct(config.sell_pressure_ratio)} 后进入LP池交易，提前释放回购通过CPMM支撑价格。`
               }
             </div>
             <div style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginTop: 4 }}>
@@ -503,12 +502,12 @@ export const ReportTab: React.FC<Props> = ({ rows, config }) => {
             {
               title: "线性释放天数",
               current: `${config.linear_release_days} 天`,
-              desc: `MX利息按 ${config.linear_release_days} 天线性释放。用户如需提前释放，须购买并销毁对应比例的MX。更长的释放天数可平滑释放峰值。`,
+              desc: `MX利息按 ${config.linear_release_days} 天线性释放。用户如需提前释放，利润自动走LP池CPMM回购MX并销毁。更长的释放天数可平滑释放峰值。`,
             },
             {
-              title: "MX 提现销毁比例",
+              title: "提前释放回购比例",
               current: pct(config.mx_burn_per_withdraw_ratio),
-              desc: "用户提现时需购买并销毁一定比例的MX。这既减少了MX流通量，又为MX创造了购买需求，有利于价格支撑。",
+              desc: "用户提前释放时，利润自动通过LP池进行CPMM回购（USDC进池、MX出池销毁）。此操作既减少MX流通量，又直接支撑MX价格。",
             },
             {
               title: "国库回购比例",
